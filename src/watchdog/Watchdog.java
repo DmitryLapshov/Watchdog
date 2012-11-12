@@ -462,9 +462,14 @@ public class Watchdog extends DefaultHandler {
                 removeResponses();
             }
             System.out.println("Finished: " + now());
+            System.out.println();
         }
         else if("constants".equals(qName)) {
             if(logfile != null) {
+                File logs = new File(logsfolder);
+                if(!logs.exists()) {
+                    logs.mkdir();
+                }
                 File f = new File(logsfolder + "/" + logfile);
                 try {
                     newPrintStream = new PrintStream(new FileOutputStream(f, true));
