@@ -509,6 +509,7 @@ public class Watchdog extends DefaultHandler {
         }
         catch(DisabledBySchedule ex) {
             System.out.println(ex.getMessage());
+            System.out.println();
         }
         catch(Exception ex) {
             System.out.println(ex.toString());
