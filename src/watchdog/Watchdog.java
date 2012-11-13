@@ -389,6 +389,7 @@ public class Watchdog extends DefaultHandler {
             responses.add("");
             cp.found = false;
             result.append("NOT FOUND!!!");
+            error = true;
         }
         System.out.println(result.toString());
         report.append("<tr style = \"background-color: ")
@@ -399,9 +400,6 @@ public class Watchdog extends DefaultHandler {
             .append((cp.found)? "Passed" : "Failed")
             .append("</td></tr>\n");
         evenodd = !evenodd;
-        if(!cp.found) {
-            error = true;
-        }
     }
     
     @Override
