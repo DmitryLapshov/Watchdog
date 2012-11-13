@@ -300,6 +300,21 @@ public class Watchdog extends DefaultHandler {
         CookieManager cm = new CookieManager();
         cm.setCookiePolicy(CookiePolicy.ACCEPT_ALL);
         CookieHandler.setDefault(cm);
+        if(logfile != null) {
+            File logs = new File(logsfolder);
+            if(!logs.exists()) {
+                logs.mkdir();
+            }
+            File f = new File(logsfolder + "/" + logfile);
+            try {
+                newPrintStream = new PrintStream(new FileOutputStream(f, true));
+                System.setOut(newPrintStream);
+            }
+            catch(Exception ex) {
+                System.out.println(ex.toString());
+                System.exit(1);
+            }
+        }
     }
     
     private void logIn(String user, String password) {
@@ -394,6 +409,12 @@ public class Watchdog extends DefaultHandler {
         if("constants".equals(qName)) {
             loadConstants(attrs);
         }
+        else if("execute".equals(qName)) {
+            started = now();
+            prepareExecution();
+            System.out.println("Started: " + started);
+            incFullPath("");
+        }
         else if("disable".equals(qName)) {
             String from = attrs.getValue("from");
             String till = attrs.getValue("till");
@@ -401,12 +422,6 @@ public class Watchdog extends DefaultHandler {
             if(0 <= current.compareTo(from) && current.compareTo(till) <= 0) {
                 throw new DisabledBySchedule("Aborted by Schedule from " + from + " till " + till);
             }  
-        }
-        else if("execute".equals(qName)) {
-            started = now();
-            System.out.println("Started: " + started);
-            prepareExecution();
-            incFullPath("");
         }
         else if("set".equals(qName)) {
             incFullPath(attrs.getValue("name"));
@@ -461,23 +476,6 @@ public class Watchdog extends DefaultHandler {
             }
             System.out.println("Finished: " + now());
             System.out.println();
-        }
-        else if("constants".equals(qName)) {
-            if(logfile != null) {
-                File logs = new File(logsfolder);
-                if(!logs.exists()) {
-                    logs.mkdir();
-                }
-                File f = new File(logsfolder + "/" + logfile);
-                try {
-                    newPrintStream = new PrintStream(new FileOutputStream(f, true));
-                    System.setOut(newPrintStream);
-                }
-                catch(Exception ex) {
-                    System.out.println(ex.toString());
-                    System.exit(1);
-                }
-            }
         }
     }
     
