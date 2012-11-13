@@ -69,15 +69,16 @@ public class Watchdog extends DefaultHandler {
             }
             System.out.println(sb.toString());
             report.append("<tr style = \"background-color: ")
-                .append((evenodd)?"lightgray":"white").append((respCode != 200)?"; color: red":"")
+                .append((evenodd)?"lightgray":"white")
+                .append((respCode != 200)?"; font-weight: bold; color: red":"")
                 .append(";\"><td style = \"padding: 0.3em; border: black solid 1px;\">")
-                .append((operation == Operations.READING)? "GET " : "POST ")
+                .append((operation == Operations.READING)? "Getting " : "Posting ")
                 .append(name).append("</td><td style = \"padding: 0.3em; border: black solid 1px;\">")
                 .append(timespan).append(" ms")
                 .append("</td><td style = \"padding: 0.3em; border: black solid 1px;\">")
                 .append((respCode == 0)? respException : Integer.toString(respCode) + ": ").append(respMessage)
                 .append("</td><td style = \"padding: 0.3em; border: black solid 1px;\">")
-                .append((respCode == 0)? "FAILED" : "PASSED")
+                .append((respCode == 0)? "Failed" : "Passed")
                 .append("</td></tr>\n");
             evenodd = !evenodd;
             if(respCode != 200) {
@@ -131,7 +132,6 @@ public class Watchdog extends DefaultHandler {
         Multipart mp;
         MimeBodyPart mbp;
         FileDataSource fds;
-        String message = report.toString();
         try {
             Properties props = new Properties();
             props.put("mail.smtp.host", mailserver);
@@ -150,12 +150,14 @@ public class Watchdog extends DefaultHandler {
                 fds = new FileDataSource(s);
                 mbp.setDataHandler(new DataHandler(fds));
                 mbp.setFileName(fds.getName());
-                //mbp.setHeader("Content-ID","<" + fds.getFile().getName() + ">");
+                mbp.setHeader("Content-Transfer-Encoding", "base64");
+                mbp.setHeader("Content-Type", "text/html; charset=UTF-8");
                 mp.addBodyPart(mbp);
             }
             // Table
             mbp = new MimeBodyPart();
-            mbp.setContent(message, "text/html; charset=UTF-8");
+            mbp.setContent(report.toString(), "text/html; charset=UTF-8");
+            mbp.setHeader("Content-Transfer-Encoding", "base64");
             mp.addBodyPart(mbp);
             //
             msg.setContent(mp);
@@ -375,16 +377,12 @@ public class Watchdog extends DefaultHandler {
         }
         System.out.println(result.toString());
         report.append("<tr style = \"background-color: ")
-            .append((evenodd)? "lightgray" : "white").append((!cp.found)? "; color: red" : "")
-            .append(";\"><td style = \"padding: 0.3em; border: black solid 1px;\" colspan = \"3\">MATCH ")
-            .append(encodeHTML(cp.name)).append("</td><td style = \"padding: 0.3em; border: black solid 1px;\">");
-        if(cp.found) {
-            report.append("PASSED");
-        }
-        else {
-            report.append("FAILED");
-        }
-        report.append("</td></tr>\n");
+            .append((evenodd)? "lightgray" : "white").append((!cp.found)? "; font-weight: bold; color: red" : "")
+            .append(";\"><td style = \"padding: 0.3em; border: black solid 1px;\" colspan = \"3\">Matching ")
+            .append(encodeHTML(cp.name))
+            .append("</td><td style = \"padding: 0.3em; border: black solid 1px;\">")
+            .append((cp.found)? "Passed" : "Failed")
+            .append("</td></tr>\n");
         evenodd = !evenodd;
         if(!cp.found) {
             error = true;
