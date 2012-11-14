@@ -78,7 +78,7 @@ public class Watchdog extends DefaultHandler {
                 .append("</td><td style = \"padding: 0.3em; border: black solid 1px;\">")
                 .append((respCode == 0)? respException : Integer.toString(respCode) + ": ").append(respMessage)
                 .append("</td><td style = \"padding: 0.3em; border: black solid 1px;\">")
-                .append((respCode == 0)? "Failed" : "Passed")
+                .append((respCode != 200)? "Failed" : "Passed")
                 .append("</td></tr>\n");
             evenodd = !evenodd;
             if(respCode != 200) {
@@ -102,7 +102,7 @@ public class Watchdog extends DefaultHandler {
     private static String logfile;
     private PrintStream newPrintStream;
     private StringBuilder report;
-    boolean evenodd = true;
+    boolean evenodd;
     boolean error;
     private String mailsubject;
     private String mailserver;
@@ -143,8 +143,9 @@ public class Watchdog extends DefaultHandler {
             msg.addRecipient(Message.RecipientType.TO, new InternetAddress(mailto));
             msg.addRecipient(Message.RecipientType.CC, new InternetAddress(mailcc));
             msg.setSubject(mailsubject + " " + started);
-            // Attachments
+            //Message body
             mp = new MimeMultipart();
+            // Attachments
             for(String s : files) {
                 mbp = new MimeBodyPart();
                 fds = new FileDataSource(s);
@@ -154,7 +155,7 @@ public class Watchdog extends DefaultHandler {
                 mbp.setHeader("Content-Type", "text/html; charset=UTF-8");
                 mp.addBodyPart(mbp);
             }
-            // Table
+            // Report
             mbp = new MimeBodyPart();
             mbp.setContent(report.toString(), "text/html; charset=UTF-8");
             mbp.setHeader("Content-Transfer-Encoding", "base64");
@@ -172,7 +173,7 @@ public class Watchdog extends DefaultHandler {
         }
     }
     
-    private void saveResponse(String ext) {
+    private String saveResponse(String ext) {
         File logs, curDir;
         StringBuilder p = new StringBuilder();
         try {            
@@ -180,7 +181,7 @@ public class Watchdog extends DefaultHandler {
             if(!logs.exists()){
                 if(!logs.mkdir()){
                     System.out.println("Unable to create Log folder!");
-                    return;
+                    return p.toString();
                 }
             }
             p.append(logsfolder).append("/").append(started.replaceAll("[:\\s]", "_"));
@@ -189,19 +190,21 @@ public class Watchdog extends DefaultHandler {
             if(!curDir.exists()){
                 if(!curDir.mkdir()) {
                     System.out.println("Unable to create Log's sub-folder!");
-                    return;
+                    return p.toString();
                 }
             }
             p.append("/").append(lastRequest.name.replace("http://", "").
-                                            replace("https://", "").replace("/", "_")).append(ext);
+                                            replace("https://", "").replaceAll("[/:]", "_")).append(ext);
             BufferedWriter out = new BufferedWriter(new FileWriter(p.toString()));
             out.write(getLastResponse());
             out.flush();
             out.close();
             files.add(p.toString());
+            return p.toString();
         }
         catch (Exception e) {
             System.out.println(e.toString());
+            return p.toString();
         }
     }
     
@@ -220,12 +223,7 @@ public class Watchdog extends DefaultHandler {
     }
     
     private String getLastResponse() {
-        if(responses.size() > 0) {
-            return responses.get(responses.size() - 1);
-        }
-        else {
-            return "";
-        }
+        return ((responses.size() > 0)? responses.get(responses.size() - 1) : "");
     }
     
     private void decLastResponse() {
@@ -288,10 +286,10 @@ public class Watchdog extends DefaultHandler {
         report.append("<!DOCTYPE html>\n<html>\n<head>\n")
             .append("<title>Auto Monitoring Report ").append(started).append("</title>\n")
             .append("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">\n</head>\n<body>\n")
-            .append("<div>\n<table style = \"font-family: arial; font-style: normal; ")
+            .append("<div>\n<table style = \"font-family: monospace; font-style: normal; ")
             .append("font-size: 0.7em; width: 100%; padding: 0.5em; ")
             .append("border: black solid 1px; border-collapse: collapse;\">\n")
-            .append("<tr style = \"background-color: white;\">")
+            .append("<tr style = \"background-color: lightgray;\">")
             .append("<th style = \"padding: 0.3em; width: 60%; border: black solid 1px;\">Operation")
             .append("</th><th style = \"padding: 0.3em; width: 8%; border: black solid 1px;\">Timing")
             .append("</th><th style = \"padding: 0.3em; width: 21%; border: black solid 1px;\">Response")
@@ -385,10 +383,10 @@ public class Watchdog extends DefaultHandler {
             result.append("FOUND");
         }
         else {
-            saveResponse((lastRequest.operation == Request.Operations.READING)? ".htm" : ".txt");
+            String f = saveResponse((lastRequest.operation == Request.Operations.READING)? ".htm" : ".txt");
             responses.add("");
             cp.found = false;
-            result.append("NOT FOUND!!!");
+            result.append("NOT FOUND!!! ").append(f).append(" SAVED");
             error = true;
         }
         System.out.println(result.toString());
@@ -472,7 +470,7 @@ public class Watchdog extends DefaultHandler {
             if(removeresponses) {
                 removeResponses();
             }
-            System.out.println("Finished: " + now());
+            System.out.println(((error)? "Finished with error(s): " : "Finished: ") + now());
             System.out.println();
         }
     }
