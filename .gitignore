@@ -1,7 +1,7 @@
 /build/
-/parameters.xml
+/parameters*.xml
 /dist/
 /logs/
 /testReport.html
 /store/
-/watchlogs/
+/*logs/
