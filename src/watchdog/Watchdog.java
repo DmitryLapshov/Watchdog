@@ -175,7 +175,7 @@ public class Watchdog extends DefaultHandler {
         }
     }
     
-    private String saveResponse(String ext) {
+    private void saveResponse(String ext) {
         File logs, curDir;
         StringBuilder p = new StringBuilder();
         try {            
@@ -183,7 +183,7 @@ public class Watchdog extends DefaultHandler {
             if(!logs.exists()){
                 if(!logs.mkdir()){
                     System.out.println("Unable to create Log folder!");
-                    return p.toString();
+                    return;
                 }
             }
             p.append(logsFolder).append("/").append(started.replaceAll("[:\\s]", "_"));
@@ -192,21 +192,20 @@ public class Watchdog extends DefaultHandler {
             if(!curDir.exists()){
                 if(!curDir.mkdir()) {
                     System.out.println("Unable to create Log's sub-folder!");
-                    return p.toString();
+                    return;
                 }
             }
             p.append("/").append(lastRequest.name.replace("http://", "").
-                                            replace("https://", "").replaceAll("[/:]", "_")).append(ext);
+                                            replace("https://", "").replaceAll("[\\?/:]", "_")).append(ext);
             BufferedWriter out = new BufferedWriter(new FileWriter(p.toString()));
             out.write(getLastResponse());
             out.flush();
             out.close();
             files.add(p.toString());
-            return p.toString();
+            System.out.println(p.toString() + " SAVED");
         }
         catch (Exception e) {
             System.out.println(e.toString());
-            return p.toString();
         }
     }
     
@@ -374,7 +373,7 @@ public class Watchdog extends DefaultHandler {
     }
     
     private void doMatch(String pt) {
-        StringBuilder result = new StringBuilder("MATCH \"" + pt + "\" ");
+        StringBuilder result = new StringBuilder("MATCH \"" + pt);
         CustomPattern cp = new CustomPattern(pt);
         Pattern p = Pattern.compile(pt);
         Matcher m = p.matcher(getLastResponse());
@@ -382,13 +381,13 @@ public class Watchdog extends DefaultHandler {
             String r = m.group();
             responses.add(r);
             cp.found = true;
-            result.append("FOUND");
+            result.append("\" FOUND");
         }
         else {
-            String f = saveResponse((lastRequest.operation == Request.Operations.READING)? ".htm" : ".txt");
+            saveResponse((lastRequest.operation == Request.Operations.READING)? ".htm" : ".txt");
             responses.add("");
             cp.found = false;
-            result.append("NOT FOUND!!! ").append(f).append(" SAVED");
+            result.append("\" NOT FOUND!!! ");
             error = true;
         }
         System.out.println(result.toString());
