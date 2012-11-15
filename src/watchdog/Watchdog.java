@@ -76,7 +76,7 @@ public class Watchdog extends DefaultHandler {
                 .append(name).append("</td><td style = \"padding: 0.3em; border: black solid 1px;\">")
                 .append(timespan).append(" ms")
                 .append("</td><td style = \"padding: 0.3em; border: black solid 1px;\">")
-                .append((respCode == 0)? respException : Integer.toString(respCode) + ": ").append(respMessage)
+                .append((respCode == 0)? respException : Integer.toString(respCode) + ": " + respMessage)
                 .append("</td><td style = \"padding: 0.3em; border: black solid 1px;\">")
                 .append((respCode != 200)? "Failed" : "Passed")
                 .append("</td></tr>\n");
@@ -88,7 +88,7 @@ public class Watchdog extends DefaultHandler {
     }
     
     private String DATE_FORMAT_NOW;
-    private String logsfolder;
+    private String logsFolder;
     private String currentFolder;
     private boolean removeresponses;
     private int attempts;
@@ -99,7 +99,9 @@ public class Watchdog extends DefaultHandler {
     private List<String> responses;
     private List<String> files;
     private String started;
-    private static String logfile;
+    private static String logFile;
+    private static String reportFile;
+    private static String paramsFile;
     private PrintStream newPrintStream;
     private StringBuilder report;
     boolean evenodd;
@@ -166,7 +168,7 @@ public class Watchdog extends DefaultHandler {
             tran.connect(mailserver, mailuser, mailpassword);
             tran.sendMessage(msg, msg.getAllRecipients());
             tran.close();
-            System.out.println("Email sent");
+            System.out.println("EMAIL SENT");
         }
         catch(Exception e) {
             System.out.println(e.toString());
@@ -177,14 +179,14 @@ public class Watchdog extends DefaultHandler {
         File logs, curDir;
         StringBuilder p = new StringBuilder();
         try {            
-            logs = new File(logsfolder);
+            logs = new File(logsFolder);
             if(!logs.exists()){
                 if(!logs.mkdir()){
                     System.out.println("Unable to create Log folder!");
                     return p.toString();
                 }
             }
-            p.append(logsfolder).append("/").append(started.replaceAll("[:\\s]", "_"));
+            p.append(logsFolder).append("/").append(started.replaceAll("[:\\s]", "_"));
             currentFolder = p.toString();
             curDir = new File(currentFolder);
             if(!curDir.exists()){
@@ -234,7 +236,7 @@ public class Watchdog extends DefaultHandler {
     
     private void loadConstants(Attributes attrs) {
         DATE_FORMAT_NOW = attrs.getValue("DATE_FORMAT_NOW");
-        logsfolder = attrs.getValue("logsfolder");
+        logsFolder = attrs.getValue("logsfolder");
         removeresponses = Boolean.parseBoolean(attrs.getValue("removeresponses"));
         attempts = Integer.parseInt(attrs.getValue("attempts"));
         Request.timeout = Integer.parseInt(attrs.getValue("timeout"));
@@ -286,7 +288,7 @@ public class Watchdog extends DefaultHandler {
         report.append("<!DOCTYPE html>\n<html>\n<head>\n")
             .append("<title>Auto Monitoring Report ").append(started).append("</title>\n")
             .append("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">\n</head>\n<body>\n")
-            .append("<div>\n<table style = \"font-family: monospace; font-style: normal; ")
+            .append("<div>\n<table style = \"font-family: arial; font-style: normal; ")
             .append("font-size: 0.7em; width: 100%; padding: 0.5em; ")
             .append("border: black solid 1px; border-collapse: collapse;\">\n")
             .append("<tr style = \"background-color: lightgray;\">")
@@ -298,12 +300,12 @@ public class Watchdog extends DefaultHandler {
         CookieManager cm = new CookieManager();
         cm.setCookiePolicy(CookiePolicy.ACCEPT_ALL);
         CookieHandler.setDefault(cm);
-        if(logfile != null) {
-            File logs = new File(logsfolder);
+        if(logFile != null) {
+            File logs = new File(logsFolder);
             if(!logs.exists()) {
                 logs.mkdir();
             }
-            File f = new File(logsfolder + "/" + logfile);
+            File f = new File(logsFolder + "/" + logFile);
             try {
                 newPrintStream = new PrintStream(new FileOutputStream(f, true));
                 System.setOut(newPrintStream);
@@ -400,6 +402,29 @@ public class Watchdog extends DefaultHandler {
         evenodd = !evenodd;
     }
     
+    private void saveReport() {
+        File logs;
+        StringBuilder p = new StringBuilder();
+        try {            
+            logs = new File(logsFolder);
+            if(!logs.exists()){
+                if(!logs.mkdir()){
+                    System.out.println("Unable to create Log folder!");
+                    return;
+                }
+            }
+            p.append(logsFolder).append("/").append(reportFile);
+            BufferedWriter out = new BufferedWriter(new FileWriter(p.toString()));
+            out.write(report.toString());
+            out.flush();
+            out.close();
+            System.out.println(p.toString() + " SAVED");
+        }
+        catch (Exception e) {
+            System.out.println(e.toString());
+        }
+    }
+    
     @Override
     public void startElement(String uri, String localName, String qName, Attributes attrs) throws SAXException {
         if("constants".equals(qName)) {
@@ -467,6 +492,9 @@ public class Watchdog extends DefaultHandler {
             if(mail && error) {
                 send();
             }
+            if(reportFile != null) {
+                saveReport();
+            }
             if(removeresponses) {
                 removeResponses();
             }
@@ -485,19 +513,33 @@ public class Watchdog extends DefaultHandler {
         }
     }
     
+    private static void parseArgs(String[] args) {
+        if(0 < (args.length % 2) && args.length < 2) {
+            System.out.println("java -jar Watchdog.jar -params parameters.xml [-log log.txt] [-out report.htm]");
+            System.exit(1);
+        }
+        int i = 0;
+        while(i < args.length) {
+            if(args[i].equals("-log")) {
+                logFile = args[i + 1];
+            }
+            else if(args[i].equals("-out")) {
+                reportFile = args[i + 1];
+            }
+            else if(args[i].equals("-params")) {
+                paramsFile = args[i + 1];
+            }
+            i+=2;
+        }
+    }
+    
     /**
      * @param args the command line arguments
      */
     public static void main(String[] args) {
-        if(args.length == 0 || args.length > 2) {
-            System.out.println("java -jar Watchdog.jar parameters.xml [log.txt]");
-            System.exit(1);
-        }
-        if(args.length == 2) {
-            logfile = args[1];
-        }
+        parseArgs(args);
         try {
-            File xmlFile = new File(args[0]);
+            File xmlFile = new File(paramsFile);
             SAXParserFactory factory = SAXParserFactory.newInstance();
             SAXParser parser = factory.newSAXParser();
             DefaultHandler handler = new Watchdog();
