@@ -642,12 +642,9 @@ public class Watchdog extends DefaultHandler {
     }
     
     private static void parseArgs(String[] args) {
-        if(0 < (args.length % 2) && args.length < 2) {
-            System.out.println("java -jar Watchdog.jar -params parameters.xml [-log log.txt] [-out report.htm]");
-            System.exit(1);
-        }
+        boolean valid = true;
         int i = 0;
-        while(i < args.length) {
+        while(i < args.length - 1) {
             if(args[i].equals("-log")) {
                 logFile = args[i + 1];
             }
@@ -657,7 +654,15 @@ public class Watchdog extends DefaultHandler {
             else if(args[i].equals("-params")) {
                 paramsFile = args[i + 1];
             }
+            else {
+                valid = false;
+                break;
+            }
             i+=2;
+        }
+        if(!valid || paramsFile == null) {
+            System.out.println("java -jar Watchdog.jar -params parameters.xml [-log log.txt] [-out report.htm]");
+            System.exit(1);            
         }
     }
     
