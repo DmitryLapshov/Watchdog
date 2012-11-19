@@ -51,11 +51,40 @@ public class Watchdog extends DefaultHandler {
     }
     
     private class CustomPattern {
-        public String name;
-        public boolean found;
+        private String name;
+        private boolean found;
         
         public CustomPattern(String name) {
             this.name = name;
+        }
+        
+        public void printMe() {
+            StringBuilder result = new StringBuilder("MATCH \"");
+            result.append(name).append((found)? "\" FOUND" : "\" NOT FOUND!!! ");
+            System.out.println(result.toString());
+            report.append("<tr style = \"background-color: ")
+                .append((evenodd)? "lightgray" : "white").append((!found)? "; font-weight: bold; color: red" : "")
+                .append(";\"><td style = \"padding: 0.3em; border: black solid 1px;\" colspan = \"3\">Matching ")
+                .append(encodeHTML(name))
+                .append("</td><td style = \"padding: 0.3em; border: black solid 1px;\">")
+                .append((found)? "Passed" : "Failed")
+                .append("</td></tr>\n");
+            evenodd = !evenodd;
+        }
+        
+        public void find() {
+            Pattern p = Pattern.compile(name);
+            Matcher m = p.matcher(getLastResponse());
+            if(m.find()) {
+                responses.add(m.group());
+                found = true;
+            }
+            else {
+                saveResponse(".txt");
+                responses.add("");
+                found = false;
+                error = true;
+            }
         }
     }
     
@@ -224,6 +253,7 @@ public class Watchdog extends DefaultHandler {
     private List<String> paths;
     private CustomRequest lastRequest;
     private String lastFullPath;
+    private CustomPattern lastMatching;
     private List<CustomRequest> requests;
     private List<String> responses;
     private List<String> files;
@@ -502,32 +532,8 @@ public class Watchdog extends DefaultHandler {
     }
     
     private void doMatch(String pt) {
-        StringBuilder result = new StringBuilder("MATCH \"" + pt);
-        CustomPattern cp = new CustomPattern(pt);
-        Pattern p = Pattern.compile(pt);
-        Matcher m = p.matcher(getLastResponse());
-        if(m.find()) {
-            String r = m.group();
-            responses.add(r);
-            cp.found = true;
-            result.append("\" FOUND");
-        }
-        else {
-            saveResponse(".txt");
-            responses.add("");
-            cp.found = false;
-            result.append("\" NOT FOUND!!! ");
-            error = true;
-        }
-        System.out.println(result.toString());
-        report.append("<tr style = \"background-color: ")
-            .append((evenodd)? "lightgray" : "white").append((!cp.found)? "; font-weight: bold; color: red" : "")
-            .append(";\"><td style = \"padding: 0.3em; border: black solid 1px;\" colspan = \"3\">Matching ")
-            .append(encodeHTML(cp.name))
-            .append("</td><td style = \"padding: 0.3em; border: black solid 1px;\">")
-            .append((cp.found)? "Passed" : "Failed")
-            .append("</td></tr>\n");
-        evenodd = !evenodd;
+        lastMatching = new CustomPattern(pt);
+        lastMatching.find();
     }
     
     private void saveReport() {
@@ -592,6 +598,7 @@ public class Watchdog extends DefaultHandler {
         else if("find".equals(qName)) {
             if(lastRequest.respCode == 200) {
                 doMatch(attrs.getValue("name"));
+                lastMatching.printMe();
             }
         }
     }
