@@ -100,9 +100,8 @@ public class Watchdog extends DefaultHandler {
         public String name;
         public Operations operation;
         public int respCode;
-        public String respMessage = "";
-        public String respException = "";
-        public String respFile = "";
+        public String respMessage;
+        public String respException;
 
         public Request(String name) {
             this.name = name;
@@ -146,6 +145,7 @@ public class Watchdog extends DefaultHandler {
             }
             catch(IOException e) {
                 respCode = 0;
+                respMessage = null;
                 respException = e.toString();
                 System.out.println(name + " " + respException);
             }
@@ -200,6 +200,7 @@ public class Watchdog extends DefaultHandler {
             }
             catch(IOException e) {
                 respCode = 0;
+                respMessage = null;
                 respException = e.toString();
                 System.out.println(name + " " + respException);
             }
@@ -218,17 +219,17 @@ public class Watchdog extends DefaultHandler {
         
         public void printMe() {
             StringBuilder sb = new StringBuilder((operation == Operations.READING)? "GET " : "POST ");
-            sb.append(name).append(" (").append(timespan).append("ms)");
-            if(respCode != 0) {
-                sb.append(" ").append(respCode).append(":").append(respMessage);
+            sb.append(name).append(" (").append(timespan).append("ms) ");
+            if(respCode == 0) {
+                sb.append(respException);
             }
-            if(!"".equals(respException)) {
-                sb.append(" ").append(respException);
+            else {
+                sb.append(respCode).append(": ").append(respMessage);
             }
             System.out.println(sb.toString());
             report.append("<tr style = \"background-color: ")
-                .append((evenodd)?"lightgray":"white")
-                .append((respCode != 200)?"; font-weight: bold; color: red":"")
+                .append((evenodd)? "lightgray" : "white")
+                .append((respCode != 200)? "; font-weight: bold; color: red" : "")
                 .append(";\"><td style = \"padding: 0.3em; border: black solid 1px;\">")
                 .append((operation == Operations.READING)? "Getting " : "Posting ")
                 .append(name).append("</td><td style = \"padding: 0.3em; border: black solid 1px;\">")
@@ -554,7 +555,7 @@ public class Watchdog extends DefaultHandler {
             out.close();
             System.out.println(p.toString() + " SAVED");
         }
-        catch (Exception e) {
+        catch(Exception e) {
             System.out.println(e.toString());
         }
     }
