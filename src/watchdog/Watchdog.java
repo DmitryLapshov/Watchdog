@@ -268,6 +268,8 @@ public class Watchdog extends DefaultHandler {
     boolean error;
     private String mailsubject;
     private String mailserver;
+    private String mailport;
+    private boolean mailauth;
     private String mailuser;
     private String mailpassword;
     private String mailfrom;
@@ -297,7 +299,8 @@ public class Watchdog extends DefaultHandler {
         try {
             Properties props = new Properties();
             props.put("mail.smtp.host", mailserver);
-            props.put("mail.smtps.auth", "true");
+            props.put("mail.smtp.port", mailport);
+            props.put("mail.smtps.auth", mailauth);
             Session session = Session.getDefaultInstance(props, null);
             // Construct the message
             Message msg = new MimeMessage(session);
@@ -403,6 +406,8 @@ public class Watchdog extends DefaultHandler {
         mail = Boolean.parseBoolean(attrs.getValue("mail"));
         mailsubject = attrs.getValue("mailsubject");
         mailserver = attrs.getValue("mailserver");
+        mailport = attrs.getValue("mailport");
+        mailauth = Boolean.parseBoolean(attrs.getValue("mailauth"));
         mailuser = attrs.getValue("mailuser");
         mailpassword = attrs.getValue("mailpassword");
         mailfrom = attrs.getValue("mailfrom");
