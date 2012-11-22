@@ -481,7 +481,7 @@ public class Watchdog extends DefaultHandler {
     }
     
     private void logIn(String user, String password) {
-        if(lastRequest.respCode == 200) {
+        if(lastRequest.isRespOK()) {
             String response = getLastResponse();
             String viewStateNameDelimiter = "__VIEWSTATE";
             String valueDelimiter = "value=\"";
