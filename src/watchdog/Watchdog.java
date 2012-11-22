@@ -63,8 +63,11 @@ public class Watchdog extends DefaultHandler {
             result.append(name).append((found)? "\" FOUND" : "\" NOT FOUND!!! ");
             System.out.println(result.toString());
             report.append("<tr style = \"background-color: ")
-                .append((evenodd)? "lightgray" : "white").append((!found)? "; font-weight: bold; color: red" : "")
-                .append(";\"><td style = \"padding: 0.3em; border: black solid 1px;\" colspan = \"3\">Matching ")
+                .append((evenodd)? "lightgray" : "white");
+            if(!found) {
+                report.append("; font-weight: bold; color: red");
+            }
+            report.append(";\"><td style = \"padding: 0.3em; border: black solid 1px;\" colspan = \"3\">MATCH ")
                 .append(encodeHTML(name))
                 .append("</td><td style = \"padding: 0.3em; border: black solid 1px;\">")
                 .append((found)? "Passed" : "Failed")
@@ -89,16 +92,11 @@ public class Watchdog extends DefaultHandler {
     }
     
     private static class Request {
-
-        public static enum Operations {
-            READING, WRITING
-        }
-
         public static int timeout;
         public static String useragent;
         public long timespan;
         public String name;
-        public Operations operation;
+        public String method;
         public int respCode;
         public String respMessage;
         public String respException;
@@ -106,13 +104,17 @@ public class Watchdog extends DefaultHandler {
         public Request(String name) {
             this.name = name;
         }
+        
+        public boolean isRespOK() {
+            return (respCode == 200 || respCode == 204)? true : false;
+        }
 
         public String get(String type) {
             URL url;
             HttpURLConnection con;
             String line;
             InputStream _is;
-            operation = Operations.READING;
+            method = "GET";
             StringBuilder buff = new StringBuilder();
             long started = System.currentTimeMillis();
             try {
@@ -120,7 +122,7 @@ public class Watchdog extends DefaultHandler {
                 con = (HttpURLConnection)url.openConnection();
                 con.setConnectTimeout(timeout);
                 con.setReadTimeout(timeout);
-                con.setRequestMethod("GET");
+                con.setRequestMethod(method);
                 con.setRequestProperty("Connection", "close");
                 con.setRequestProperty("Content-Type", type);
                 con.setRequestProperty("Content-Language", "en-US");
@@ -155,29 +157,29 @@ public class Watchdog extends DefaultHandler {
             }
         }
 
-        public String post(String post, String type) {
+        public String post(String message, String type) {
             URL url;
             HttpURLConnection con;
             String line;
             InputStream _is;
-            operation = Operations.WRITING;
+            method = "POST";
             StringBuilder buff = new StringBuilder();
             long started = System.currentTimeMillis();
             try {
                 url = new URL(name);
                 con = (HttpURLConnection)url.openConnection();
-                con.setRequestMethod("POST");
+                con.setRequestMethod(method);
                 con.setDoOutput(true);
                 con.setConnectTimeout(timeout);
                 con.setReadTimeout(timeout);
                 con.setRequestProperty("Connection", "close");
                 con.setRequestProperty("Content-Type", type);
-                con.setRequestProperty("Content-Length", Integer.toString(post.getBytes().length));
+                con.setRequestProperty("Content-Length", Integer.toString(message.getBytes().length));
                 con.setRequestProperty("Content-Language", "en-US");
                 con.addRequestProperty("User-Agent", useragent);
                 //con.setUseCaches(true);
                 DataOutputStream dos = new DataOutputStream(con.getOutputStream());
-                dos.writeBytes(post);
+                dos.writeBytes(message);
                 dos.flush();
                 dos.close();
                 respCode = con.getResponseCode();
@@ -209,17 +211,10 @@ public class Watchdog extends DefaultHandler {
                 return buff.toString();
             }
         }
-    }
-    
-    private class CustomRequest extends Request {
-        
-        public CustomRequest(String name) {
-            super(name);
-        }
         
         public void printMe() {
-            StringBuilder sb = new StringBuilder((operation == Operations.READING)? "GET " : "POST ");
-            sb.append(name).append(" (").append(timespan).append("ms) ");
+            StringBuilder sb = new StringBuilder(method);
+            sb.append(" ").append(name).append(" (").append(timespan).append("ms) ");
             if(respCode == 0) {
                 sb.append(respException);
             }
@@ -228,16 +223,18 @@ public class Watchdog extends DefaultHandler {
             }
             System.out.println(sb.toString());
             report.append("<tr style = \"background-color: ")
-                .append((evenodd)? "lightgray" : "white")
-                .append((respCode != 200)? "; font-weight: bold; color: red" : "")
-                .append(";\"><td style = \"padding: 0.3em; border: black solid 1px;\">")
-                .append((operation == Operations.READING)? "Getting " : "Posting ")
+                .append((evenodd)? "lightgray" : "white");
+            if(!isRespOK()) {
+                report.append("; font-weight: bold; color: red");
+            }
+            report.append(";\"><td style = \"padding: 0.3em; border: black solid 1px;\">")
+                .append(method).append(" ")
                 .append(name).append("</td><td style = \"padding: 0.3em; border: black solid 1px;\">")
                 .append(timespan).append(" ms")
                 .append("</td><td style = \"padding: 0.3em; border: black solid 1px;\">")
                 .append((respCode == 0)? respException : Integer.toString(respCode) + ": " + respMessage)
                 .append("</td><td style = \"padding: 0.3em; border: black solid 1px;\">")
-                .append((respCode != 200)? "Failed" : "Passed")
+                .append((isRespOK())? "Passed" : "Failed")
                 .append("</td></tr>\n");
             evenodd = !evenodd;
             if(respCode != 200) {
@@ -252,10 +249,10 @@ public class Watchdog extends DefaultHandler {
     private boolean removeresponses;
     private int attempts;
     private List<String> paths;
-    private CustomRequest lastRequest;
+    private Request lastRequest;
     private String lastFullPath;
     private CustomPattern lastMatching;
-    private List<CustomRequest> requests;
+    private List<Request> requests;
     private List<String> responses;
     private List<String> files;
     private String started;
@@ -263,9 +260,9 @@ public class Watchdog extends DefaultHandler {
     private static String reportFile;
     private static String paramsFile;
     private PrintStream newPrintStream;
-    private StringBuilder report;
-    boolean evenodd;
-    boolean error;
+    private static StringBuilder report;
+    private static boolean evenodd;
+    private static boolean error;
     private String mailsubject;
     private String mailserver;
     private String mailport;
@@ -446,7 +443,7 @@ public class Watchdog extends DefaultHandler {
     }
     
     private void prepareExecution() {
-        requests = new ArrayList<CustomRequest>();
+        requests = new ArrayList<Request>();
         paths = new ArrayList<String>();
         responses = new ArrayList<String>();
         files = new ArrayList<String>();
@@ -493,24 +490,24 @@ public class Watchdog extends DefaultHandler {
             if(0 < viewStateNamePosition && viewStateNamePosition < viewStateValuePosition) {
                 int viewStateStartPosition = viewStateValuePosition + valueDelimiter.length();
                 int viewStateEndPosition = response.indexOf("\"", viewStateStartPosition);
-                String post = String.format(
+                String message = String.format(
                     "__VIEWSTATE=%1$s&Login1$UserName=%2$s&Login1$Password=%3$s&Login1$LoginButton=Sign+In",
                     response.substring(viewStateStartPosition, viewStateEndPosition), 
                     user, 
                     password);
-                doWrite(post, "application/x-www-form-urlencoded");
+                doPost(message, "application/x-www-form-urlencoded");
             }
         }
     }
     
-    private void doRead() {
-        doRead("application/x-www-form-urlencoded");
+    private void doOpen() {
+        doGet("text/html; charset=utf-8");
     }
     
-    private void doRead(String type) {
+    private void doGet(String type) {
         String response = "";
         for(int i = 0; i < attempts ; i++) {
-            lastRequest = new CustomRequest(lastFullPath);
+            lastRequest = new Request(lastFullPath);
             response = lastRequest.get(type);
             if(lastRequest.respCode != 0) {
                 break;
@@ -521,15 +518,15 @@ public class Watchdog extends DefaultHandler {
         responses.add(response);
     }
     
-    private void doWrite(String post) {
-        doWrite(post, "application/json");
+    private void doPost(String message) {
+        doPost(message, "application/json; charset=utf-8");
     }
     
-    private void doWrite(String post, String type) {
+    private void doPost(String message, String type) {
         String response = "";
         for(int i = 0; i < attempts ; i++) {
-            lastRequest = new CustomRequest(lastFullPath);
-            response = lastRequest.post(post, type);
+            lastRequest = new Request(lastFullPath);
+            response = lastRequest.post(message, type);
             if(lastRequest.respCode != 0) {
                 break;
             }
@@ -589,14 +586,14 @@ public class Watchdog extends DefaultHandler {
         else if("set".equals(qName)) {
             incFullPath(attrs.getValue("name"));
         }
-        else if("read".equals(qName)) {
+        else if("open".equals(qName)) {
             incFullPath(attrs.getValue("name"));
-            doRead();
+            doOpen();
             lastRequest.printMe();
         }
-        else if("write".equals(qName)) {
+        else if("post".equals(qName)) {
             incFullPath(attrs.getValue("name"));
-            doWrite(attrs.getValue("post"));
+            doPost(attrs.getValue("message"));
             lastRequest.printMe();
         }
         else if("user".equals(qName)) {
@@ -604,7 +601,7 @@ public class Watchdog extends DefaultHandler {
             lastRequest.printMe();
         }
         else if("find".equals(qName)) {
-            if(lastRequest.respCode == 200) {
+            if(lastRequest.isRespOK()) {
                 doMatch(attrs.getValue("name"));
                 lastMatching.printMe();
             }
@@ -616,11 +613,11 @@ public class Watchdog extends DefaultHandler {
         if("set".equals(qName)) {
             decFullPath();
         }
-        if("read".equals(qName)) {
+        if("open".equals(qName)) {
             decLastResponse();
             decFullPath();
         }
-        else if("write".equals(qName)) {
+        else if("post".equals(qName)) {
             decLastResponse();
             decFullPath();
         }
