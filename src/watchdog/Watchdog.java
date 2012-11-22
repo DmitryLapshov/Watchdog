@@ -237,7 +237,7 @@ public class Watchdog extends DefaultHandler {
                 .append((isRespOK())? "Passed" : "Failed")
                 .append("</td></tr>\n");
             evenodd = !evenodd;
-            if(respCode != 200) {
+            if(!isRespOK()) {
                 error = true;
             }
         }
@@ -315,12 +315,12 @@ public class Watchdog extends DefaultHandler {
                 mbp.setDataHandler(new DataHandler(fds));
                 mbp.setFileName(fds.getName());
                 mbp.setHeader("Content-Transfer-Encoding", "base64");
-                mbp.setHeader("Content-Type", "text/html; charset=UTF-8");
+                mbp.setHeader("Content-Type", "text/html; charset=utf-8");
                 mp.addBodyPart(mbp);
             }
             // Report
             mbp = new MimeBodyPart();
-            mbp.setContent(report.toString(), "text/html; charset=UTF-8");
+            mbp.setContent(report.toString(), "text/html; charset=utf-8");
             mbp.setHeader("Content-Transfer-Encoding", "base64");
             mp.addBodyPart(mbp);
             //
@@ -495,7 +495,7 @@ public class Watchdog extends DefaultHandler {
                     response.substring(viewStateStartPosition, viewStateEndPosition), 
                     user, 
                     password);
-                doPost(message, "application/x-www-form-urlencoded");
+                doPost(message, "application/x-www-form-urlencoded; charset=utf-8");
             }
         }
     }
