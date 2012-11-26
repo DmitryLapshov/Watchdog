@@ -43,6 +43,40 @@ import org.xml.sax.helpers.DefaultHandler;
  * @author kit
  */
 public class Watchdog extends DefaultHandler {
+    private static String DATE_FORMAT_NOW;
+    private static String logsFolder;
+    private static String currentFolder;
+    private static String lastFullPath;
+    private static String started;
+    private static String logFile;
+    private static String reportFile;
+    private static String paramsFile;
+    private static String mailsubject;
+    private static String mailserver;
+    private static String mailport;
+    private static String mailauth;
+    private static String mailtransport;
+    private static String mailuser;
+    private static String mailpassword;
+    private static String mailfrom;
+    private static String mailto;
+    private static String mailcc;
+    private static String useragent;
+    private static boolean removeresponses;
+    private static int executed;
+    private static int attempts;
+    private static int timeout;
+    private static List<String> paths;
+    private static List<Request> requests;
+    private static List<String> responses;
+    private static List<String> files;
+    private static Request lastRequest;
+    private static CustomPattern lastMatching;
+    private static PrintStream newPrintStream;
+    private static StringBuilder report;
+    private static boolean evenodd;
+    private static boolean error;
+    private static boolean mail;
     
     private class DisabledBySchedule extends SAXException {
         public DisabledBySchedule(String s) {
@@ -91,13 +125,11 @@ public class Watchdog extends DefaultHandler {
         }
     }
     
-    private static class Request {
-        public static int timeout;
-        public static String useragent;
+    private class Request {
+        public int respCode;
         public long timespan;
         public String name;
         public String method;
-        public int respCode;
         public String respMessage;
         public String respException;
 
@@ -243,38 +275,6 @@ public class Watchdog extends DefaultHandler {
         }
     }
     
-    private String DATE_FORMAT_NOW;
-    private String logsFolder;
-    private String currentFolder;
-    private boolean removeresponses;
-    private int attempts;
-    private List<String> paths;
-    private Request lastRequest;
-    private String lastFullPath;
-    private CustomPattern lastMatching;
-    private List<Request> requests;
-    private List<String> responses;
-    private List<String> files;
-    private String started;
-    private static String logFile;
-    private static String reportFile;
-    private static String paramsFile;
-    private PrintStream newPrintStream;
-    private static StringBuilder report;
-    private static boolean evenodd;
-    private static boolean error;
-    private String mailsubject;
-    private String mailserver;
-    private String mailport;
-    private String mailauth;
-    private String mailtransport;
-    private String mailuser;
-    private String mailpassword;
-    private String mailfrom;
-    private String mailto;
-    private String mailcc;
-    private boolean mail;
-    
     private String encodeHTML(String s) {
         char c;
         StringBuilder out = new StringBuilder();
@@ -305,7 +305,7 @@ public class Watchdog extends DefaultHandler {
             msg.setFrom(new InternetAddress(mailfrom));
             msg.addRecipient(Message.RecipientType.TO, new InternetAddress(mailto));
             msg.addRecipient(Message.RecipientType.CC, new InternetAddress(mailcc));
-            msg.setSubject(mailsubject + " " + started);
+            msg.setSubject(mailsubject + " (" + now("EEE, d MMM yyyy HH:mm:ss Z") + ")");
             //Message body
             mp = new MimeMultipart();
             // Attachments
@@ -399,8 +399,8 @@ public class Watchdog extends DefaultHandler {
         logsFolder = attrs.getValue("logsfolder");
         removeresponses = Boolean.parseBoolean(attrs.getValue("removeresponses"));
         attempts = Integer.parseInt(attrs.getValue("attempts"));
-        Request.timeout = Integer.parseInt(attrs.getValue("timeout"));
-        Request.useragent = attrs.getValue("useragent");
+        timeout = Integer.parseInt(attrs.getValue("timeout"));
+        useragent = attrs.getValue("useragent");
         mail = Boolean.parseBoolean(attrs.getValue("mail"));
         mailsubject = attrs.getValue("mailsubject");
         mailserver = attrs.getValue("mailserver");
@@ -449,7 +449,7 @@ public class Watchdog extends DefaultHandler {
         files = new ArrayList<String>();
         report = new StringBuilder();
         report.append("<!DOCTYPE html>\n<html>\n<head>\n")
-            .append("<title>").append(mailsubject).append(" ").append(started).append("</title>\n")
+            .append("<title>Monitoring started: ").append(started).append("</title>\n")
             .append("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">\n</head>\n<body>\n")
             .append("<div>\n<table style = \"font-family: arial; font-style: normal; ")
             .append("font-size: 0.7em; width: 100%; padding: 0.5em; ")
@@ -567,13 +567,18 @@ public class Watchdog extends DefaultHandler {
     @Override
     public void startElement(String uri, String localName, String qName, Attributes attrs) throws SAXException {
         if("constants".equals(qName)) {
-            loadConstants(attrs);
+            if(executed == 0) {
+                loadConstants(attrs);
+            }
         }
         else if("execute".equals(qName)) {
-            started = now();
-            prepareExecution();
-            System.out.println("Started: " + started);
-            incFullPath("");
+            if(executed == 0) {
+                started = now();
+                prepareExecution();
+                System.out.println("Started: " + started);
+                incFullPath("");
+            }
+            executed++;
         }
         else if("disable".equals(qName)) {
             String from = attrs.getValue("from");
@@ -606,6 +611,21 @@ public class Watchdog extends DefaultHandler {
                 lastMatching.printMe();
             }
         }
+        else if("include".equals(qName)) {
+            try {
+                File xmlFile = new File(attrs.getValue("name"));
+                SAXParserFactory factory = SAXParserFactory.newInstance();
+                SAXParser parser = factory.newSAXParser();
+                DefaultHandler handler = new Watchdog();
+                parser.parse(xmlFile, handler);
+            }
+            catch(DisabledBySchedule ex) {
+                System.out.println(ex.getMessage());
+            }
+            catch(Exception ex) {
+                System.out.println(ex.toString());
+            }
+        }
     }
     
     @Override
@@ -628,24 +648,27 @@ public class Watchdog extends DefaultHandler {
             decLastResponse();
         }
         else if("execute".equals(qName)) {
-            report.append("</table>\n</div>\n</body>\n</html>\n");
-            if(mail && error) {
-                send();
+            if(executed == 1) {
+                report.append("</table>\n</div>\n</body>\n</html>\n");
+                if(mail && error) {
+                    send();
+                }
+                if(reportFile != null) {
+                    saveReport();
+                }
+                if(removeresponses) {
+                    removeResponses();
+                }
+                System.out.println(((error)? "Finished with error(s): " : "Finished: ") + now());
+                System.out.println();
             }
-            if(reportFile != null) {
-                saveReport();
-            }
-            if(removeresponses) {
-                removeResponses();
-            }
-            System.out.println(((error)? "Finished with error(s): " : "Finished: ") + now());
-            System.out.println();
+            executed--;
         }
     }
     
     private void pause() {
         try {
-            Thread.sleep(Request.timeout);
+            Thread.sleep(timeout);
         }
         catch (InterruptedException ex) {
             System.out.println(ex.toString());
@@ -692,10 +715,12 @@ public class Watchdog extends DefaultHandler {
         }
         catch(DisabledBySchedule ex) {
             System.out.println(ex.getMessage());
-            System.out.println();
         }
         catch(Exception ex) {
             System.out.println(ex.toString());
+        }
+        finally {
+            System.out.println();
         }
     }
 }
