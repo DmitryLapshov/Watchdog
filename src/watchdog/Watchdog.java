@@ -62,7 +62,6 @@ public class Watchdog extends DefaultHandler {
     private static String mailto;
     private static String mailcc;
     private static String useragent;
-    private static boolean removeresponses;
     private static int executed;
     private static int attempts;
     private static int timeout;
@@ -77,6 +76,7 @@ public class Watchdog extends DefaultHandler {
     private static boolean evenodd;
     private static boolean error;
     private static boolean mail;
+    private static boolean removeresponses;
     
     private class DisabledBySchedule extends SAXException {
         public DisabledBySchedule(String s) {
