@@ -66,7 +66,6 @@ public class Watchdog extends DefaultHandler {
     private static int attempts;
     private static int timeout;
     private static List<String> paths;
-    private static List<Request> requests;
     private static List<String> responses;
     private static List<String> files;
     private static Request lastRequest;
@@ -95,7 +94,7 @@ public class Watchdog extends DefaultHandler {
         public void printMe() {
             StringBuilder result = new StringBuilder("MATCH \"");
             result.append(name).append((found)? "\" FOUND" : "\" NOT FOUND!!! ");
-            System.out.println(result.toString());
+            System.out.println(result);
             report.append("<tr style = \"background-color: ")
                 .append((evenodd)? "lightgray" : "white");
             if(!found) {
@@ -117,7 +116,7 @@ public class Watchdog extends DefaultHandler {
                 found = true;
             }
             else {
-                saveResponse(".txt");
+                saveLastResponse(".txt");
                 responses.add("");
                 found = false;
                 error = true;
@@ -179,9 +178,8 @@ public class Watchdog extends DefaultHandler {
             }
             catch(IOException e) {
                 respCode = 0;
-                respMessage = null;
                 respException = e.toString();
-                System.out.println(name + " " + respException);
+                System.out.println(respException);
             }
             finally {
                 timespan = System.currentTimeMillis() - started;
@@ -234,9 +232,8 @@ public class Watchdog extends DefaultHandler {
             }
             catch(IOException e) {
                 respCode = 0;
-                respMessage = null;
                 respException = e.toString();
-                System.out.println(name + " " + respException);
+                System.out.println(respException);
             }
             finally {
                 timespan = System.currentTimeMillis() - started;
@@ -246,14 +243,14 @@ public class Watchdog extends DefaultHandler {
         
         public void printMe() {
             StringBuilder sb = new StringBuilder(method);
-            sb.append(" ").append(name).append(" (").append(timespan).append("ms) ");
+            sb.append(" ").append(name).append(" (").append(timespan).append(" ms) ");
             if(respCode == 0) {
                 sb.append(respException);
             }
             else {
                 sb.append(respCode).append(": ").append(respMessage);
             }
-            System.out.println(sb.toString());
+            System.out.println(sb);
             report.append("<tr style = \"background-color: ")
                 .append((evenodd)? "lightgray" : "white");
             if(!isRespOK()) {
@@ -336,7 +333,7 @@ public class Watchdog extends DefaultHandler {
         }
     }
     
-    private void saveResponse(String ext) {
+    private void saveLastResponse(String ext) {
         File logs, curDir;
         StringBuilder p = new StringBuilder();
         try {            
@@ -363,7 +360,8 @@ public class Watchdog extends DefaultHandler {
             out.flush();
             out.close();
             files.add(p.toString());
-            System.out.println(p.toString() + " SAVED");
+            System.out.print(p);
+            System.out.println(" SAVED");
         }
         catch (Exception e) {
             System.out.println(e.toString());
@@ -443,7 +441,6 @@ public class Watchdog extends DefaultHandler {
     }
     
     private void prepareExecution() {
-        requests = new ArrayList<Request>();
         paths = new ArrayList<String>();
         responses = new ArrayList<String>();
         files = new ArrayList<String>();
@@ -514,8 +511,10 @@ public class Watchdog extends DefaultHandler {
             }
             pause();
         }
-        requests.add(lastRequest);
         responses.add(response);
+        if(lastRequest.respCode != 0 && !lastRequest.isRespOK()) {
+            saveLastResponse(".txt");
+        }
     }
     
     private void doPost(String message) {
@@ -532,8 +531,10 @@ public class Watchdog extends DefaultHandler {
             }
             pause();
         }
-        requests.add(lastRequest);
         responses.add(response);
+        if(lastRequest.respCode != 0 && !lastRequest.isRespOK()) {
+            saveLastResponse(".txt");
+        }
     }
     
     private void doMatch(String pt) {
@@ -557,7 +558,8 @@ public class Watchdog extends DefaultHandler {
             out.write(report.toString());
             out.flush();
             out.close();
-            System.out.println(p.toString() + " SAVED");
+            System.out.print(p);
+            System.out.println(" SAVED");
         }
         catch(Exception e) {
             System.out.println(e.toString());
@@ -660,7 +662,6 @@ public class Watchdog extends DefaultHandler {
                     removeResponses();
                 }
                 System.out.println(((error)? "Finished with error(s): " : "Finished: ") + now());
-                System.out.println();
             }
             executed--;
         }
