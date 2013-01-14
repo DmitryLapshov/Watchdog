@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -35,6 +36,7 @@ import javax.mail.internet.MimeMultipart;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 import org.xml.sax.Attributes;
+import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
@@ -91,7 +93,7 @@ public class Watchdog extends DefaultHandler {
             this.name = name;
         }
         
-        public void printMe() {
+        public void reportIt() {
             StringBuilder result = new StringBuilder("MATCH \"");
             result.append(name).append((found)? "\" FOUND" : "\" NOT FOUND!!! ");
             System.out.println(result);
@@ -111,14 +113,13 @@ public class Watchdog extends DefaultHandler {
         public void find() {
             Pattern p = Pattern.compile(name);
             Matcher m = p.matcher(getLastResponse());
-            if(m.find()) {
+            found = m.find();
+            if(found) {
                 responses.add(m.group());
-                found = true;
             }
             else {
                 saveLastResponse(".txt");
                 responses.add("");
-                found = false;
                 error = true;
             }
         }
@@ -168,11 +169,11 @@ public class Watchdog extends DefaultHandler {
                 /* error from server */
                     _is = con.getErrorStream();
                 }
-                BufferedReader br = new BufferedReader(new InputStreamReader(_is));
-                while ((line = br.readLine()) != null){
-                    buff.append(line).append("\n");
+                try (BufferedReader br = new BufferedReader(new InputStreamReader(_is, "UTF-8"))) {
+                    while ((line = br.readLine()) != null){
+                        buff.append(line).append("\n");
+                    }
                 }
-                br.close();
                 _is.close();
                 con.disconnect();
             }
@@ -207,11 +208,10 @@ public class Watchdog extends DefaultHandler {
                 con.setRequestProperty("Content-Length", Integer.toString(message.getBytes().length));
                 con.setRequestProperty("Content-Language", "en-US");
                 con.addRequestProperty("User-Agent", useragent);
-                //con.setUseCaches(true);
-                DataOutputStream dos = new DataOutputStream(con.getOutputStream());
-                dos.writeBytes(message);
-                dos.flush();
-                dos.close();
+                try (DataOutputStream dos = new DataOutputStream(con.getOutputStream())) {
+                    dos.writeBytes(message);
+                    dos.flush();
+                }
                 respCode = con.getResponseCode();
                 respMessage = con.getResponseMessage();
                 if(respCode < 400) {
@@ -221,12 +221,11 @@ public class Watchdog extends DefaultHandler {
                 /* error from server */
                     _is = con.getErrorStream();
                 }
-                BufferedReader br = new BufferedReader(new InputStreamReader(_is));
-                while ((line = br.readLine()) != null){
-                    buff.append(line).append("\n");
+                try (BufferedReader br = new BufferedReader(new InputStreamReader(_is, "UTF-8"))) {
+                    while ((line = br.readLine()) != null){
+                        buff.append(line).append("\n");
+                    }
                 }
-                br.close();
-
                 _is.close();
                 con.disconnect();
             }
@@ -241,7 +240,7 @@ public class Watchdog extends DefaultHandler {
             }
         }
         
-        public void printMe() {
+        public void reportIt() {
             StringBuilder sb = new StringBuilder(method);
             sb.append(" ").append(name).append(" (").append(timespan).append(" ms) ");
             if(respCode == 0) {
@@ -266,9 +265,6 @@ public class Watchdog extends DefaultHandler {
                 .append((isRespOK())? "Passed" : "Failed")
                 .append("</td></tr>\n");
             evenodd = !evenodd;
-            if(!isRespOK()) {
-                error = true;
-            }
         }
     }
     
@@ -287,7 +283,7 @@ public class Watchdog extends DefaultHandler {
         return out.toString();
     }
     
-    private void send() {
+    private void sendReport() {
         Multipart mp;
         MimeBodyPart mbp;
         FileDataSource fds;
@@ -353,12 +349,11 @@ public class Watchdog extends DefaultHandler {
                     return;
                 }
             }
-            p.append("/").append(lastRequest.name.replace("http://", "").
-                                            replace("https://", "").replaceAll("[\\?/:]", "_")).append(ext);
-            BufferedWriter out = new BufferedWriter(new FileWriter(p.toString()));
-            out.write(getLastResponse());
-            out.flush();
-            out.close();
+            p.append("/").append(lastRequest.name.replaceAll("[\\?/:]", "_")).append(ext);
+            try (BufferedWriter out = new BufferedWriter(new FileWriter(p.toString()))) {
+                out.write(getLastResponse());
+                out.flush();
+            }
             files.add(p.toString());
             System.out.print(p);
             System.out.println(" SAVED");
@@ -441,9 +436,9 @@ public class Watchdog extends DefaultHandler {
     }
     
     private void prepareExecution() {
-        paths = new ArrayList<String>();
-        responses = new ArrayList<String>();
-        files = new ArrayList<String>();
+        paths = new ArrayList<>();
+        responses = new ArrayList<>();
+        files = new ArrayList<>();
         report = new StringBuilder();
         report.append("<!DOCTYPE html>\n<html>\n<head>\n")
             .append("<title>Monitoring started: ").append(started).append("</title>\n")
@@ -512,8 +507,11 @@ public class Watchdog extends DefaultHandler {
             pause();
         }
         responses.add(response);
-        if(lastRequest.respCode != 0 && !lastRequest.isRespOK()) {
-            saveLastResponse(".txt");
+        if(!lastRequest.isRespOK()) {
+            error = true;
+            if(lastRequest.respCode != 0) {
+                saveLastResponse(".txt");
+            }
         }
     }
     
@@ -532,8 +530,11 @@ public class Watchdog extends DefaultHandler {
             pause();
         }
         responses.add(response);
-        if(lastRequest.respCode != 0 && !lastRequest.isRespOK()) {
-            saveLastResponse(".txt");
+        if(!lastRequest.isRespOK()){
+            error = true;
+            if(lastRequest.respCode != 0) {
+                saveLastResponse(".txt");
+            }
         }
     }
     
@@ -554,10 +555,10 @@ public class Watchdog extends DefaultHandler {
                 }
             }
             p.append(logsFolder).append("/").append(reportFile);
-            BufferedWriter out = new BufferedWriter(new FileWriter(p.toString()));
-            out.write(report.toString());
-            out.flush();
-            out.close();
+            try (BufferedWriter out = new BufferedWriter(new FileWriter(p.toString()))) {
+                out.write(report.toString());
+                out.flush();
+            }
             System.out.print(p);
             System.out.println(" SAVED");
         }
@@ -568,65 +569,69 @@ public class Watchdog extends DefaultHandler {
     
     @Override
     public void startElement(String uri, String localName, String qName, Attributes attrs) throws SAXException {
-        if("constants".equals(qName)) {
-            if(executed == 0) {
-                loadConstants(attrs);
-            }
-        }
-        else if("execute".equals(qName)) {
-            if(executed == 0) {
-                started = now();
-                prepareExecution();
-                System.out.println("Started: " + started);
-                incFullPath("");
-            }
-            executed++;
-        }
-        else if("disable".equals(qName)) {
-            String from = attrs.getValue("from");
-            String till = attrs.getValue("till");
-            String current = now("HH:mm");
-            if(0 <= current.compareTo(from) && current.compareTo(till) <= 0) {
-                throw new DisabledBySchedule("Aborted by Schedule from " + from + " till " + till);
-            }  
-        }
-        else if("set".equals(qName)) {
-            incFullPath(attrs.getValue("name"));
-        }
-        else if("open".equals(qName)) {
-            incFullPath(attrs.getValue("name"));
-            doOpen();
-            lastRequest.printMe();
-        }
-        else if("post".equals(qName)) {
-            incFullPath(attrs.getValue("name"));
-            doPost(attrs.getValue("message"));
-            lastRequest.printMe();
-        }
-        else if("user".equals(qName)) {
-            logIn(attrs.getValue("name"), attrs.getValue("password"));
-            lastRequest.printMe();
-        }
-        else if("find".equals(qName)) {
-            if(lastRequest.isRespOK()) {
-                doMatch(attrs.getValue("name"));
-                lastMatching.printMe();
-            }
-        }
-        else if("include".equals(qName)) {
-            try {
-                File xmlFile = new File(attrs.getValue("name"));
-                SAXParserFactory factory = SAXParserFactory.newInstance();
-                SAXParser parser = factory.newSAXParser();
-                DefaultHandler handler = new Watchdog();
-                parser.parse(xmlFile, handler);
-            }
-            catch(DisabledBySchedule ex) {
-                System.out.println(ex.getMessage());
-            }
-            catch(Exception ex) {
-                System.out.println(ex.toString());
-            }
+        switch (qName) {
+            case "constants":
+                if(executed == 0) {
+                    loadConstants(attrs);
+                }
+                break;
+            case "execute":
+                if(executed == 0) {
+                    started = now();
+                    prepareExecution();
+                    System.out.println("Started: " + started);
+                    incFullPath("");
+                }
+                executed++;
+                break;
+            case "disable":
+                String from = attrs.getValue("from");
+                String till = attrs.getValue("till");
+                String current = now("HH:mm");
+                if(0 <= current.compareTo(from) && current.compareTo(till) <= 0) {
+                    throw new DisabledBySchedule("Aborted by Schedule from " + from + " till " + till);
+                }
+                break;
+            case "set":
+                incFullPath(attrs.getValue("name"));
+                break;
+            case "open":
+                incFullPath(attrs.getValue("name"));
+                doOpen();
+                lastRequest.reportIt();
+                break;
+            case "post":
+                incFullPath(attrs.getValue("name"));
+                doPost(attrs.getValue("message"));
+                lastRequest.reportIt();
+                break;
+            case "user":
+                logIn(attrs.getValue("name"), attrs.getValue("password"));
+                lastRequest.reportIt();
+                break;
+            case "find":
+                if(lastRequest.isRespOK()) {
+                    doMatch(attrs.getValue("name"));
+                    lastMatching.reportIt();
+                }
+                break;
+            case "include":
+                try {
+                    File xmlFile = new File(attrs.getValue("name"));
+                    InputSource is = new InputSource(new InputStreamReader(new FileInputStream(xmlFile), "UTF-8"));
+                    is.setEncoding("UTF-8");
+                    SAXParserFactory factory = SAXParserFactory.newInstance();
+                    SAXParser saxParser = factory.newSAXParser();
+                    DefaultHandler handler = new Watchdog();
+                    saxParser.parse(is, handler);
+                }
+                catch(DisabledBySchedule ex) {
+                    System.out.println(ex.getMessage());
+                }
+                catch(Exception ex) {
+                    System.out.println(ex.toString());
+                }
+                break;
         }
     }
     
@@ -635,35 +640,37 @@ public class Watchdog extends DefaultHandler {
         if("set".equals(qName)) {
             decFullPath();
         }
-        if("open".equals(qName)) {
-            decLastResponse();
-            decFullPath();
-        }
-        else if("post".equals(qName)) {
-            decLastResponse();
-            decFullPath();
-        }
-        else if("user".equals(qName)) {
-            decLastResponse();
-        }
-        else if("find".equals(qName)) {
-            decLastResponse();
-        }
-        else if("execute".equals(qName)) {
-            if(executed == 1) {
-                report.append("</table>\n</div>\n</body>\n</html>\n");
-                if(mail && error) {
-                    send();
+        switch (qName) {
+            case "open":
+                decLastResponse();
+                decFullPath();
+                break;
+            case "post":
+                decLastResponse();
+                decFullPath();
+                break;
+            case "user":
+                decLastResponse();
+                break;
+            case "find":
+                decLastResponse();
+                break;
+            case "execute":
+                if(executed == 1) {
+                    report.append("</table>\n</div>\n</body>\n</html>\n");
+                    if(mail && error) {
+                        sendReport();
+                    }
+                    if(reportFile != null) {
+                        saveReport();
+                    }
+                    if(removeresponses) {
+                        removeResponses();
+                    }
+                    System.out.println(((error)? "Finished with error(s): " : "Finished: ") + now());
                 }
-                if(reportFile != null) {
-                    saveReport();
-                }
-                if(removeresponses) {
-                    removeResponses();
-                }
-                System.out.println(((error)? "Finished with error(s): " : "Finished: ") + now());
-            }
-            executed--;
+                executed--;
+                break;
         }
     }
     
@@ -681,17 +688,21 @@ public class Watchdog extends DefaultHandler {
         boolean valid = true;
         int i = 0;
         while(i < args.length - 1) {
-            if(args[i].equals("-log")) {
-                logFile = args[i + 1];
+            switch (args[i]) {
+                case "-log":
+                    logFile = args[i + 1];
+                    break;
+                case "-out":
+                    reportFile = args[i + 1];
+                    break;
+                case "-params":
+                    paramsFile = args[i + 1];
+                    break;
+                default:
+                    valid = false;
+                    break;
             }
-            else if(args[i].equals("-out")) {
-                reportFile = args[i + 1];
-            }
-            else if(args[i].equals("-params")) {
-                paramsFile = args[i + 1];
-            }
-            else {
-                valid = false;
+            if(!valid){
                 break;
             }
             i+=2;
@@ -709,10 +720,12 @@ public class Watchdog extends DefaultHandler {
         parseArgs(args);
         try {
             File xmlFile = new File(paramsFile);
+            InputSource is = new InputSource(new InputStreamReader(new FileInputStream(xmlFile), "UTF-8"));
+            is.setEncoding("UTF-8");
             SAXParserFactory factory = SAXParserFactory.newInstance();
-            SAXParser parser = factory.newSAXParser();
+            SAXParser saxParser = factory.newSAXParser();
             DefaultHandler handler = new Watchdog();
-            parser.parse(xmlFile, handler);
+            saxParser.parse(is, handler);
         }
         catch(DisabledBySchedule ex) {
             System.out.println(ex.getMessage());
