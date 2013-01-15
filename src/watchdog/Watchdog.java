@@ -43,6 +43,16 @@ import org.xml.sax.helpers.DefaultHandler;
 /**
  *
  * @author kit
+ * 
+ * Supported commands:
+ *  execute
+ *  disable
+ *  set
+ *  user (uses http post with 'application/x-www-form-urlencoded; charset=utf-8')
+ *  open (uses http get with 'text/html; charset=utf-8')
+ *  post (uses http post with 'application/json; charset=utf-8')
+ *  find (uses regex matching)
+ *  include
  */
 public class Watchdog extends DefaultHandler {
     private static String DATE_FORMAT_NOW;
@@ -616,21 +626,7 @@ public class Watchdog extends DefaultHandler {
                 }
                 break;
             case "include":
-                try {
-                    File xmlFile = new File(attrs.getValue("name"));
-                    InputSource is = new InputSource(new InputStreamReader(new FileInputStream(xmlFile), "UTF-8"));
-                    is.setEncoding("UTF-8");
-                    SAXParserFactory factory = SAXParserFactory.newInstance();
-                    SAXParser saxParser = factory.newSAXParser();
-                    DefaultHandler handler = new Watchdog();
-                    saxParser.parse(is, handler);
-                }
-                catch(DisabledBySchedule ex) {
-                    System.out.println(ex.getMessage());
-                }
-                catch(Exception ex) {
-                    System.out.println(ex.toString());
-                }
+                parseXML(attrs.getValue("name"));
                 break;
         }
     }
@@ -713,13 +709,9 @@ public class Watchdog extends DefaultHandler {
         }
     }
     
-    /**
-     * @param args the command line arguments
-     */
-    public static void main(String[] args) {
-        parseArgs(args);
-        try {
-            File xmlFile = new File(paramsFile);
+    private static void parseXML(String file){
+        try{
+            File xmlFile = new File(file);
             InputSource is = new InputSource(new InputStreamReader(new FileInputStream(xmlFile), "UTF-8"));
             is.setEncoding("UTF-8");
             SAXParserFactory factory = SAXParserFactory.newInstance();
@@ -727,14 +719,20 @@ public class Watchdog extends DefaultHandler {
             DefaultHandler handler = new Watchdog();
             saxParser.parse(is, handler);
         }
-        catch(DisabledBySchedule ex) {
+        catch(DisabledBySchedule ex){
             System.out.println(ex.getMessage());
         }
-        catch(Exception ex) {
+        catch(Exception ex){
             System.out.println(ex.toString());
         }
-        finally {
-            System.out.println();
-        }
+    }
+    
+    /**
+     * @param args the command line arguments
+     */
+    public static void main(String[] args) {
+        parseArgs(args);
+        parseXML(paramsFile);
+        System.out.println();
     }
 }
