@@ -19,6 +19,7 @@ import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Properties;
 import java.util.regex.Matcher;
@@ -58,7 +59,6 @@ public class Watchdog extends DefaultHandler {
     private static String DATE_FORMAT_NOW;
     private static String logsFolder;
     private static String currentFolder;
-    private static String lastFullPath;
     private static String started;
     private static String logFile;
     private static String reportFile;
@@ -77,10 +77,10 @@ public class Watchdog extends DefaultHandler {
     private static int executed;
     private static int attempts;
     private static int timeout;
-    private static List<String> paths;
-    private static List<String> responses;
+    private static LinkedList<String> paths;
+    private static LinkedList<String> responses;
     private static List<String> files;
-    private static Request lastRequest;
+    private static Request request;
     private static CustomPattern lastMatching;
     private static PrintStream newPrintStream;
     private static StringBuilder report;
@@ -88,6 +88,11 @@ public class Watchdog extends DefaultHandler {
     private static boolean error;
     private static boolean mail;
     private static boolean removeresponses;
+    private static final String reportHeader = "";
+    private static final String reportRequestSuccess = "";
+    private static final String reportRequestFailure = "";
+    private static final String reportMatchSuccess = "";
+    private static final String reportMatchFailure = "";
     
     private class DisabledBySchedule extends SAXException {
         public DisabledBySchedule(String s) {
@@ -112,7 +117,7 @@ public class Watchdog extends DefaultHandler {
             if(!found) {
                 report.append("; font-weight: bold; color: red");
             }
-            report.append(";\"><td style = \"padding: 0.3em; border: black solid 1px;\" colspan = \"3\">MATCH ")
+            report.append(";\"><td style = \"padding: 0.3em; border: black solid 1px;\" colspan = \"3\">")
                 .append(encodeHTML(name))
                 .append("</td><td style = \"padding: 0.3em; border: black solid 1px;\">")
                 .append((found)? "Passed" : "Failed")
@@ -122,7 +127,7 @@ public class Watchdog extends DefaultHandler {
         
         public void find() {
             Pattern p = Pattern.compile(name);
-            Matcher m = p.matcher(getLastResponse());
+            Matcher m = p.matcher(responses.getLast());
             found = m.find();
             if(found) {
                 responses.add(m.group());
@@ -266,7 +271,6 @@ public class Watchdog extends DefaultHandler {
                 report.append("; font-weight: bold; color: red");
             }
             report.append(";\"><td style = \"padding: 0.3em; border: black solid 1px;\">")
-                .append(method).append(" ")
                 .append(name).append("</td><td style = \"padding: 0.3em; border: black solid 1px;\">")
                 .append(timespan).append(" ms")
                 .append("</td><td style = \"padding: 0.3em; border: black solid 1px;\">")
@@ -350,7 +354,7 @@ public class Watchdog extends DefaultHandler {
                     return;
                 }
             }
-            p.append(logsFolder).append("/").append(started.replaceAll("[:\\s]", "_"));
+            p.append(logsFolder).append("/").append(started.replaceAll("[/:\\ ]+", "_"));
             currentFolder = p.toString();
             curDir = new File(currentFolder);
             if(!curDir.exists()){
@@ -359,9 +363,9 @@ public class Watchdog extends DefaultHandler {
                     return;
                 }
             }
-            p.append("/").append(lastRequest.name.replaceAll("[\\?/:]", "_")).append(ext);
+            p.append("/").append(request.name.replaceAll("[/\\: ]+", "_")).append(ext);
             try (BufferedWriter out = new BufferedWriter(new FileWriter(p.toString()))) {
-                out.write(getLastResponse());
+                out.write(responses.getLast());
                 out.flush();
             }
             files.add(p.toString());
@@ -387,16 +391,6 @@ public class Watchdog extends DefaultHandler {
         }
     }
     
-    private String getLastResponse() {
-        return ((responses.size() > 0)? responses.get(responses.size() - 1) : "");
-    }
-    
-    private void decLastResponse() {
-        if(responses.size() > 0) {
-            responses.remove(responses.size() - 1);
-        }
-    }
-    
     private void loadConstants(Attributes attrs) {
         DATE_FORMAT_NOW = attrs.getValue("DATE_FORMAT_NOW");
         logsFolder = attrs.getValue("logsfolder");
@@ -417,24 +411,6 @@ public class Watchdog extends DefaultHandler {
         mailcc = attrs.getValue("mailcc");
     }
     
-    private String getFullPath() {
-        StringBuilder sb = new StringBuilder();
-        for(String p : paths) {
-            sb.append(p);
-        }
-        return sb.toString();
-    }
-    
-    private void incFullPath(String name) {
-        paths.add(name);
-        lastFullPath = getFullPath();
-    }
-    
-    private void decFullPath() {
-        paths.remove(paths.size() - 1);
-        lastFullPath = getFullPath();
-    }
-    
     private String now() {
         return now(DATE_FORMAT_NOW);
     }
@@ -446,8 +422,9 @@ public class Watchdog extends DefaultHandler {
     }
     
     private void prepareExecution() {
-        paths = new ArrayList<>();
-        responses = new ArrayList<>();
+        paths = new LinkedList<>();
+        paths.add("");
+        responses = new LinkedList<>();
         files = new ArrayList<>();
         report = new StringBuilder();
         report.append("<!DOCTYPE html>\n<html>\n<head>\n")
@@ -483,21 +460,16 @@ public class Watchdog extends DefaultHandler {
     }
     
     private void logIn(String user, String password) {
-        if(lastRequest.isRespOK()) {
-            String response = getLastResponse();
-            String viewStateNameDelimiter = "__VIEWSTATE";
-            String valueDelimiter = "value=\"";
-            int viewStateNamePosition = response.indexOf(viewStateNameDelimiter);
-            int viewStateValuePosition = response.indexOf(valueDelimiter, viewStateNamePosition);
-            if(0 < viewStateNamePosition && viewStateNamePosition < viewStateValuePosition) {
-                int viewStateStartPosition = viewStateValuePosition + valueDelimiter.length();
-                int viewStateEndPosition = response.indexOf("\"", viewStateStartPosition);
+        if(request.isRespOK()) {
+            Pattern p = Pattern.compile("__VIEWSTATE.+?value=\"(.+?)\"");
+            Matcher m = p.matcher(responses.getLast());
+            if(m.find()){
                 String message = String.format(
                     "__VIEWSTATE=%1$s&Login1$UserName=%2$s&Login1$Password=%3$s&Login1$LoginButton=Sign+In",
-                    response.substring(viewStateStartPosition, viewStateEndPosition), 
+                    m.group(1), 
                     user, 
                     password);
-                doPost(message, "application/x-www-form-urlencoded; charset=utf-8");
+                doPost(message, "application/x-www-form-urlencoded; charset=utf-8");                
             }
         }
     }
@@ -509,17 +481,17 @@ public class Watchdog extends DefaultHandler {
     private void doGet(String type) {
         String response = "";
         for(int i = 0; i < attempts ; i++) {
-            lastRequest = new Request(lastFullPath);
-            response = lastRequest.get(type);
-            if(lastRequest.respCode != 0) {
+            request = new Request(paths.getLast());
+            response = request.get(type);
+            if(request.respCode != 0) {
                 break;
             }
             pause();
         }
         responses.add(response);
-        if(!lastRequest.isRespOK()) {
+        if(!request.isRespOK()) {
             error = true;
-            if(lastRequest.respCode != 0) {
+            if(request.respCode != 0) {
                 saveLastResponse(".txt");
             }
         }
@@ -532,17 +504,17 @@ public class Watchdog extends DefaultHandler {
     private void doPost(String message, String type) {
         String response = "";
         for(int i = 0; i < attempts ; i++) {
-            lastRequest = new Request(lastFullPath);
-            response = lastRequest.post(message, type);
-            if(lastRequest.respCode != 0) {
+            request = new Request(paths.getLast());
+            response = request.post(message, type);
+            if(request.respCode != 0) {
                 break;
             }
             pause();
         }
         responses.add(response);
-        if(!lastRequest.isRespOK()){
+        if(!request.isRespOK()){
             error = true;
-            if(lastRequest.respCode != 0) {
+            if(request.respCode != 0) {
                 saveLastResponse(".txt");
             }
         }
@@ -590,7 +562,6 @@ public class Watchdog extends DefaultHandler {
                     started = now();
                     prepareExecution();
                     System.out.println("Started: " + started);
-                    incFullPath("");
                 }
                 executed++;
                 break;
@@ -603,24 +574,24 @@ public class Watchdog extends DefaultHandler {
                 }
                 break;
             case "set":
-                incFullPath(attrs.getValue("name"));
+                paths.add(paths.getLast() + attrs.getValue("name"));
                 break;
             case "open":
-                incFullPath(attrs.getValue("name"));
+                paths.add(paths.getLast() + attrs.getValue("name"));
                 doOpen();
-                lastRequest.reportIt();
+                request.reportIt();
                 break;
             case "post":
-                incFullPath(attrs.getValue("name"));
+                paths.add(paths.getLast() + attrs.getValue("name"));
                 doPost(attrs.getValue("message"));
-                lastRequest.reportIt();
+                request.reportIt();
                 break;
             case "user":
                 logIn(attrs.getValue("name"), attrs.getValue("password"));
-                lastRequest.reportIt();
+                request.reportIt();
                 break;
             case "find":
-                if(lastRequest.isRespOK()) {
+                if(request.isRespOK()) {
                     doMatch(attrs.getValue("name"));
                     lastMatching.reportIt();
                 }
@@ -633,23 +604,23 @@ public class Watchdog extends DefaultHandler {
     
     @Override
     public void endElement(String uri, String localName, String qName) throws SAXException {
-        if("set".equals(qName)) {
-            decFullPath();
-        }
         switch (qName) {
+            case "set":
+                paths.removeLast();
+                break;
             case "open":
-                decLastResponse();
-                decFullPath();
+                responses.removeLast();
+                paths.removeLast();
                 break;
             case "post":
-                decLastResponse();
-                decFullPath();
+                responses.removeLast();
+                paths.removeLast();
                 break;
             case "user":
-                decLastResponse();
+                responses.removeLast();
                 break;
             case "find":
-                decLastResponse();
+                responses.removeLast();
                 break;
             case "execute":
                 if(executed == 1) {
@@ -663,7 +634,7 @@ public class Watchdog extends DefaultHandler {
                     if(removeresponses) {
                         removeResponses();
                     }
-                    System.out.println(((error)? "Finished with error(s): " : "Finished: ") + now());
+                    System.out.println((error? "Finished with error(s): " : "Finished: ") + now());
                 }
                 executed--;
                 break;
