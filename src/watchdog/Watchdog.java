@@ -88,11 +88,6 @@ public class Watchdog extends DefaultHandler {
     private static boolean error;
     private static boolean mail;
     private static boolean removeresponses;
-    private static final String reportHeader = "";
-    private static final String reportRequestSuccess = "";
-    private static final String reportRequestFailure = "";
-    private static final String reportMatchSuccess = "";
-    private static final String reportMatchFailure = "";
     
     private class DisabledBySchedule extends SAXException {
         public DisabledBySchedule(String s) {
@@ -110,17 +105,17 @@ public class Watchdog extends DefaultHandler {
         
         public void reportIt() {
             StringBuilder result = new StringBuilder("MATCH \"");
-            result.append(name).append((found)? "\" FOUND" : "\" NOT FOUND!!! ");
+            result.append(name).append(found? "\" FOUND" : "\" NOT FOUND!!! ");
             System.out.println(result);
             report.append("<tr style = \"background-color: ")
-                .append((evenodd)? "lightgray" : "white");
+                .append(evenodd? "lightgray" : "white");
             if(!found) {
                 report.append("; font-weight: bold; color: red");
             }
             report.append(";\"><td style = \"padding: 0.3em; border: black solid 1px;\" colspan = \"3\">")
                 .append(encodeHTML(name))
                 .append("</td><td style = \"padding: 0.3em; border: black solid 1px;\">")
-                .append((found)? "Passed" : "Failed")
+                .append(found? "Passed" : "Failed")
                 .append("</td></tr>\n");
             evenodd = !evenodd;
         }
@@ -266,7 +261,7 @@ public class Watchdog extends DefaultHandler {
             }
             System.out.println(sb);
             report.append("<tr style = \"background-color: ")
-                .append((evenodd)? "lightgray" : "white");
+                .append(evenodd? "lightgray" : "white");
             if(!isRespOK()) {
                 report.append("; font-weight: bold; color: red");
             }
@@ -276,7 +271,7 @@ public class Watchdog extends DefaultHandler {
                 .append("</td><td style = \"padding: 0.3em; border: black solid 1px;\">")
                 .append((respCode == 0)? respException : Integer.toString(respCode) + ": " + respMessage)
                 .append("</td><td style = \"padding: 0.3em; border: black solid 1px;\">")
-                .append((isRespOK())? "Passed" : "Failed")
+                .append(isRespOK()? "Passed" : "Failed")
                 .append("</td></tr>\n");
             evenodd = !evenodd;
         }
@@ -620,7 +615,9 @@ public class Watchdog extends DefaultHandler {
                 responses.removeLast();
                 break;
             case "find":
-                responses.removeLast();
+                if(request.isRespOK()) {
+                    responses.removeLast();
+                }
                 break;
             case "execute":
                 if(executed == 1) {
