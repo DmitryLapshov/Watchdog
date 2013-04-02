@@ -424,7 +424,7 @@ public class Watchdog extends DefaultHandler {
         report = new StringBuilder();
         report.append("<!DOCTYPE html>\n<html>\n<head>\n")
             .append("<title>Monitoring started: ").append(started).append("</title>\n")
-            .append("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">\n</head>\n<body>\n")
+            .append("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" />\n</head>\n<body>\n")
             .append("<div>\n<table style = \"font-family: arial; font-style: normal; ")
             .append("font-size: 0.7em; width: 100%; padding: 0.5em; ")
             .append("border: black solid 1px; border-collapse: collapse;\">\n")
