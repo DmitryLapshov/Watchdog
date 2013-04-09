@@ -20,7 +20,6 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -79,9 +78,9 @@ public class Watchdog extends DefaultHandler {
     private static int timeout;
     private static LinkedList<String> paths;
     private static LinkedList<String> responses;
-    private static List<String> files;
+    private static ArrayList<String> files;
     private static Request request;
-    private static CustomPattern lastMatching;
+    private static CustomPattern matching;
     private static PrintStream newPrintStream;
     private static StringBuilder report;
     private static boolean evenodd;
@@ -466,6 +465,9 @@ public class Watchdog extends DefaultHandler {
                     password);
                 doPost(message, "application/x-www-form-urlencoded; charset=utf-8");                
             }
+            else{
+                System.out.println("Unable to find VIEWSTATE!");
+            }
         }
     }
     
@@ -516,8 +518,8 @@ public class Watchdog extends DefaultHandler {
     }
     
     private void doMatch(String pt) {
-        lastMatching = new CustomPattern(pt);
-        lastMatching.find();
+        matching = new CustomPattern(pt);
+        matching.find();
     }
     
     private void saveReport() {
@@ -588,7 +590,7 @@ public class Watchdog extends DefaultHandler {
             case "find":
                 if(request.isRespOK()) {
                     doMatch(attrs.getValue("name"));
-                    lastMatching.reportIt();
+                    matching.reportIt();
                 }
                 break;
             case "include":
