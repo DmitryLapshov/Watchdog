@@ -147,7 +147,8 @@ public class Watchdog extends DefaultHandler {
         }
         
         public boolean isRespOK() {
-            return (respCode == 200 || respCode == 204)? true : false;
+            return (respCode == HttpURLConnection.HTTP_OK || 
+                    respCode == HttpURLConnection.HTTP_NO_CONTENT)? true : false;
         }
 
         public String get(String type) {
@@ -433,9 +434,6 @@ public class Watchdog extends DefaultHandler {
             .append("</th><th style = \"padding: 0.3em; width: 21%; border: black solid 1px;\">Response")
             .append("</th><th style = \"padding: 0.3em; width: 11%; border: black solid 1px;\">Result")
             .append("</th></tr>\n");
-        CookieManager cm = new CookieManager();
-        cm.setCookiePolicy(CookiePolicy.ACCEPT_ALL);
-        CookieHandler.setDefault(cm);
         if(logFile != null) {
             File logs = new File(logsFolder);
             if(!logs.exists()) {
@@ -702,7 +700,13 @@ public class Watchdog extends DefaultHandler {
      */
     public static void main(String[] args) {
         parseArgs(args);
+        
+        CookieManager cm = new CookieManager();
+        cm.setCookiePolicy(CookiePolicy.ACCEPT_ALL);
+        CookieHandler.setDefault(cm);
+        
         parseXML(paramsFile);
+        
         System.out.println();
     }
 }
