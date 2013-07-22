@@ -455,17 +455,12 @@ public class Watchdog extends DefaultHandler {
         if(request.isRespOK()) {
             Pattern p = Pattern.compile("__VIEWSTATE.+?value=\"(.+?)\"");
             Matcher m = p.matcher(responses.getLast());
-            if(m.find()){
-                String message = String.format(
-                    "__VIEWSTATE=%1$s&Login1$UserName=%2$s&Login1$Password=%3$s&Login1$LoginButton=Sign+In",
-                    m.group(1), 
-                    user, 
-                    password);
-                doPost(message, "application/x-www-form-urlencoded; charset=utf-8");                
-            }
-            else{
-                System.out.println("Unable to find VIEWSTATE!");
-            }
+            String message = String.format(
+                "__VIEWSTATE=%1$s&Login1$UserName=%2$s&Login1$Password=%3$s&Login1$LoginButton=Sign+In",
+                m.find(1)? m.group(1): "", 
+                user, 
+                password);
+            doPost(message, "application/x-www-form-urlencoded; charset=utf-8");                
         }
     }
     
@@ -612,7 +607,9 @@ public class Watchdog extends DefaultHandler {
                 paths.removeLast();
                 break;
             case "user":
-                responses.removeLast();
+                if(request.isRespOK()) {
+                    responses.removeLast();
+                }
                 break;
             case "find":
                 if(request.isRespOK()) {
