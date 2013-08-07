@@ -23,6 +23,8 @@ import java.util.LinkedList;
 import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 import javax.activation.DataHandler;
 import javax.activation.FileDataSource;
 import javax.mail.Message;
@@ -55,27 +57,29 @@ import org.xml.sax.helpers.DefaultHandler;
  *  include
  */
 public class Watchdog extends DefaultHandler {
-    private static String DATE_FORMAT_NOW;
+    private static String dateFormatNow;
     private static String logsFolder;
     private static String currentFolder;
+    private static String backupsFolder;
     private static String started;
     private static String logFile;
     private static String reportFile;
     private static String paramsFile;
-    private static String mailsubject;
-    private static String mailserver;
-    private static String mailport;
-    private static String mailauth;
-    private static String mailtransport;
-    private static String mailuser;
-    private static String mailpassword;
-    private static String mailfrom;
-    private static String mailto;
-    private static String mailcc;
-    private static String useragent;
+    private static String mailSubject;
+    private static String mailServer;
+    private static String mailPort;
+    private static String mailAuth;
+    private static String mailTransport;
+    private static String mailUser;
+    private static String mailPassword;
+    private static String mailFrom;
+    private static String mailTo;
+    private static String mailCc;
+    private static String userAgent;
     private static int executed;
     private static int attempts;
     private static int timeout;
+    private static int maxLogSize;
     private static LinkedList<String> paths;
     private static LinkedList<String> responses;
     private static ArrayList<String> files;
@@ -83,10 +87,112 @@ public class Watchdog extends DefaultHandler {
     private static CustomPattern matching;
     private static PrintStream newPrintStream;
     private static StringBuilder report;
+    private static boolean zipLogFolder;
     private static boolean evenodd;
     private static boolean error;
     private static boolean mail;
-    private static boolean removeresponses;
+    private static boolean removeResponses;
+    
+    private static long folderSize(File directory) {
+        long length = 0;
+        
+        if(directory.exists()) {
+            for (File file : directory.listFiles()) {
+                if (file.isFile()) {
+                    length += file.length();
+                }
+                else {
+                    length += folderSize(file);
+                }
+            }
+        }
+        return length;
+    }
+    
+    private static void zipFolder(String srcFolder, String destZipFile) throws Exception {
+        ZipOutputStream zip;
+        FileOutputStream fileWriter;
+
+        fileWriter = new FileOutputStream(destZipFile);
+        zip = new ZipOutputStream(fileWriter);
+
+        addFolderToZip("", srcFolder, zip);
+        zip.flush();
+        zip.close();
+    }
+
+    private static void addFileToZip(String path, String srcFile, ZipOutputStream zip) throws Exception {
+        File folder = new File(srcFile);
+        
+        if (folder.isDirectory()) {
+            addFolderToZip(path, srcFile, zip);
+        }
+        else {
+            byte[] buf = new byte[1024];
+            int len;
+            try (FileInputStream in = new FileInputStream(srcFile)) {
+                zip.putNextEntry(new ZipEntry(path + "/" + folder.getName()));
+                while ((len = in.read(buf)) > 0) {
+                    zip.write(buf, 0, len);
+                }
+            }
+        }
+    }
+
+    private static void addFolderToZip(String path, String srcFolder, ZipOutputStream zip) throws Exception {
+        File folder = new File(srcFolder);
+
+        for (String fileName : folder.list()) {
+            if("".equals(path)) {
+                addFileToZip(folder.getName(), srcFolder + "/" + fileName, zip);
+            }
+            else {
+                addFileToZip(path + "/" + folder.getName(), srcFolder + "/" + fileName, zip);
+            }
+        }
+    }
+    
+    private static void cleanFolder(File file) {
+        if(file.exists()) {
+            if(file.isDirectory()) {
+                for(File f : file.listFiles()) {
+                    cleanFolder(f);
+                }
+                file.delete();
+            } else {
+                file.delete();
+            }
+        }
+    }
+
+    private static void zipAndClean(File logs) {
+        long length = folderSize(logs);
+
+        if(length < maxLogSize) {
+            return;
+        }
+        
+        File backups = new File(backupsFolder);
+        
+        if(!backups.exists()) {
+            if(!backups.mkdir()) {
+                System.out.println("Unable to create backups folder!!!");
+                System.exit(1);
+            }
+        }
+        
+        try {
+            String destZipFile = backupsFolder + "/" + logsFolder + " backup " + started + ".zip";
+            destZipFile = destZipFile.replaceAll("[ :-]", "_");
+            zipFolder(logsFolder, destZipFile);
+            cleanFolder(logs);
+            System.out.println(destZipFile + " created");
+        }
+        catch (Exception ex) {
+            System.out.println(ex.toString());
+            System.exit(1);
+        }
+    }
     
     private class DisabledBySchedule extends SAXException {
         public DisabledBySchedule(String s) {
@@ -168,7 +274,7 @@ public class Watchdog extends DefaultHandler {
                 con.setRequestProperty("Connection", "close");
                 con.setRequestProperty("Content-Type", type);
                 con.setRequestProperty("Content-Language", "en-US");
-                con.addRequestProperty("User-Agent", useragent);
+                con.addRequestProperty("User-Agent", userAgent);
                 //con.setUseCaches(true);
                 respCode = con.getResponseCode();
                 respMessage = con.getResponseMessage();
@@ -217,7 +323,7 @@ public class Watchdog extends DefaultHandler {
                 con.setRequestProperty("Content-Type", type);
                 con.setRequestProperty("Content-Length", Integer.toString(message.getBytes().length));
                 con.setRequestProperty("Content-Language", "en-US");
-                con.addRequestProperty("User-Agent", useragent);
+                con.addRequestProperty("User-Agent", userAgent);
                 try (DataOutputStream dos = new DataOutputStream(con.getOutputStream())) {
                     dos.writeBytes(message);
                     dos.flush();
@@ -298,16 +404,16 @@ public class Watchdog extends DefaultHandler {
         FileDataSource fds;
         try {
             Properties props = new Properties();
-            props.put("mail.smtp.host", mailserver);
-            props.put("mail.smtp.port", mailport);
-            props.put("mail.smtp.auth", mailauth);
+            props.put("mail.smtp.host", mailServer);
+            props.put("mail.smtp.port", mailPort);
+            props.put("mail.smtp.auth", mailAuth);
             Session session = Session.getDefaultInstance(props, null);
             // Construct the message
             Message msg = new MimeMessage(session);
-            msg.setFrom(new InternetAddress(mailfrom));
-            msg.addRecipient(Message.RecipientType.TO, new InternetAddress(mailto));
-            msg.addRecipient(Message.RecipientType.CC, new InternetAddress(mailcc));
-            msg.setSubject(mailsubject + " (" + now("EEE, d MMM yyyy HH:mm:ss Z") + ")");
+            msg.setFrom(new InternetAddress(mailFrom));
+            msg.addRecipient(Message.RecipientType.TO, new InternetAddress(mailTo));
+            msg.addRecipient(Message.RecipientType.CC, new InternetAddress(mailCc));
+            msg.setSubject(mailSubject + " (" + now("EEE, d MMM yyyy HH:mm:ss Z") + ")");
             //Message body
             mp = new MimeMultipart();
             // Attachments
@@ -327,8 +433,8 @@ public class Watchdog extends DefaultHandler {
             mp.addBodyPart(mbp);
             //
             msg.setContent(mp);
-            Transport tran = session.getTransport(mailtransport);
-            tran.connect(mailserver, mailuser, mailpassword);
+            Transport tran = session.getTransport(mailTransport);
+            tran.connect(mailServer, mailUser, mailPassword);
             tran.sendMessage(msg, msg.getAllRecipients());
             tran.close();
             System.out.println("EMAIL SENT");
@@ -387,27 +493,30 @@ public class Watchdog extends DefaultHandler {
     }
     
     private void loadConstants(Attributes attrs) {
-        DATE_FORMAT_NOW = attrs.getValue("DATE_FORMAT_NOW");
+        dateFormatNow = attrs.getValue("DATE_FORMAT_NOW");
         logsFolder = attrs.getValue("logsfolder");
-        removeresponses = Boolean.parseBoolean(attrs.getValue("removeresponses"));
+        backupsFolder = attrs.getValue("backupsfolder");
+        zipLogFolder = Boolean.parseBoolean(attrs.getValue("ziplogfolder"));
+        removeResponses = Boolean.parseBoolean(attrs.getValue("removeresponses"));
+        maxLogSize = Integer.parseInt(attrs.getValue("maxlogsize"));
         attempts = Integer.parseInt(attrs.getValue("attempts"));
         timeout = Integer.parseInt(attrs.getValue("timeout"));
-        useragent = attrs.getValue("useragent");
+        userAgent = attrs.getValue("useragent");
         mail = Boolean.parseBoolean(attrs.getValue("mail"));
-        mailsubject = attrs.getValue("mailsubject");
-        mailserver = attrs.getValue("mailserver");
-        mailport = attrs.getValue("mailport");
-        mailauth = attrs.getValue("mailauth");
-        mailtransport = attrs.getValue("mailtransport");
-        mailuser = attrs.getValue("mailuser");
-        mailpassword = attrs.getValue("mailpassword");
-        mailfrom = attrs.getValue("mailfrom");
-        mailto = attrs.getValue("mailto");
-        mailcc = attrs.getValue("mailcc");
+        mailSubject = attrs.getValue("mailsubject");
+        mailServer = attrs.getValue("mailserver");
+        mailPort = attrs.getValue("mailport");
+        mailAuth = attrs.getValue("mailauth");
+        mailTransport = attrs.getValue("mailtransport");
+        mailUser = attrs.getValue("mailuser");
+        mailPassword = attrs.getValue("mailpassword");
+        mailFrom = attrs.getValue("mailfrom");
+        mailTo = attrs.getValue("mailto");
+        mailCc = attrs.getValue("mailcc");
     }
     
     private String now() {
-        return now(DATE_FORMAT_NOW);
+        return now(dateFormatNow);
     }
     
     private String now(String dateFormat) {
@@ -434,10 +543,19 @@ public class Watchdog extends DefaultHandler {
             .append("</th><th style = \"padding: 0.3em; width: 21%; border: black solid 1px;\">Response")
             .append("</th><th style = \"padding: 0.3em; width: 11%; border: black solid 1px;\">Result")
             .append("</th></tr>\n");
+        
+       
+        if(zipLogFolder) {
+            zipAndClean(new File(logsFolder));
+        }        
+        
         if(logFile != null) {
             File logs = new File(logsFolder);
             if(!logs.exists()) {
-                logs.mkdir();
+                if(!logs.mkdir()) {
+                    System.out.println("Unable to create logs folder!!!");
+                    System.exit(1);
+                }
             }
             File f = new File(logsFolder + "/" + logFile);
             try {
@@ -625,7 +743,7 @@ public class Watchdog extends DefaultHandler {
                     if(reportFile != null) {
                         saveReport();
                     }
-                    if(removeresponses) {
+                    if(removeResponses) {
                         removeResponses();
                     }
                     System.out.println((error? "Finished with error(s): " : "Finished: ") + now());
