@@ -158,10 +158,8 @@ public class Watchdog extends DefaultHandler {
                 for(File f : file.listFiles()) {
                     cleanFolder(f);
                 }
-                file.delete();
-            } else {
-                file.delete();
             }
+            file.delete();
         }
     }
 
@@ -200,7 +198,7 @@ public class Watchdog extends DefaultHandler {
         }
     }
     
-    private class CustomPattern {
+    private static class CustomPattern {
         private String name;
         private boolean found;
         
@@ -240,7 +238,7 @@ public class Watchdog extends DefaultHandler {
         }
     }
     
-    private class Request {
+    private static class Request {
         public int respCode;
         public long timespan;
         public String name;
@@ -383,7 +381,7 @@ public class Watchdog extends DefaultHandler {
         }
     }
     
-    private String encodeHTML(String s) {
+    private static String encodeHTML(String s) {
         char c;
         StringBuilder out = new StringBuilder();
         for(int i = 0; i < s.length(); i++) {
@@ -398,7 +396,7 @@ public class Watchdog extends DefaultHandler {
         return out.toString();
     }
     
-    private void sendReport() {
+    private static void sendReport() {
         Multipart mp;
         MimeBodyPart mbp;
         FileDataSource fds;
@@ -444,7 +442,7 @@ public class Watchdog extends DefaultHandler {
         }
     }
     
-    private void saveLastResponse(String ext) {
+    private static void saveLastResponse(String ext) {
         File logs, curDir;
         StringBuilder p = new StringBuilder();
         try {            
@@ -478,7 +476,7 @@ public class Watchdog extends DefaultHandler {
         }
     }
     
-    private void removeResponses() {
+    private static void removeResponses() {
         File file;
         for(String f : files) {
             System.out.println("Deleting " + f);
@@ -492,7 +490,7 @@ public class Watchdog extends DefaultHandler {
         }
     }
     
-    private void loadConstants(Attributes attrs) {
+    private static void loadConstants(Attributes attrs) {
         dateFormatNow = attrs.getValue("DATE_FORMAT_NOW");
         logsFolder = attrs.getValue("logsfolder");
         backupsFolder = attrs.getValue("backupsfolder");
@@ -515,17 +513,17 @@ public class Watchdog extends DefaultHandler {
         mailCc = attrs.getValue("mailcc");
     }
     
-    private String now() {
+    private static String now() {
         return now(dateFormatNow);
     }
     
-    private String now(String dateFormat) {
+    private static String now(String dateFormat) {
         Calendar cal = Calendar.getInstance();
         SimpleDateFormat sdf = new SimpleDateFormat(dateFormat);
         return sdf.format(cal.getTime());
     }
     
-    private void prepareExecution() {
+    private static void prepareExecution() {
         paths = new LinkedList<>();
         paths.add("");
         responses = new LinkedList<>();
@@ -569,7 +567,7 @@ public class Watchdog extends DefaultHandler {
         }
     }
     
-    private void logIn(String user, String password) {
+    private static void logIn(String user, String password) {
         if(request.isRespOK()) {
             Pattern p = Pattern.compile("__VIEWSTATE.+?value=\"(.+?)\"");
             Matcher m = p.matcher(responses.getLast());
@@ -582,11 +580,11 @@ public class Watchdog extends DefaultHandler {
         }
     }
     
-    private void doOpen() {
+    private static void doOpen() {
         doGet("text/html; charset=utf-8");
     }
     
-    private void doGet(String type) {
+    private static void doGet(String type) {
         String response = "";
         for(int i = 0; i < attempts ; i++) {
             request = new Request(paths.getLast());
@@ -605,11 +603,11 @@ public class Watchdog extends DefaultHandler {
         }
     }
     
-    private void doPost(String message) {
+    private static void doPost(String message) {
         doPost(message, "application/json; charset=utf-8");
     }
     
-    private void doPost(String message, String type) {
+    private static void doPost(String message, String type) {
         String response = "";
         for(int i = 0; i < attempts ; i++) {
             request = new Request(paths.getLast());
@@ -628,12 +626,12 @@ public class Watchdog extends DefaultHandler {
         }
     }
     
-    private void doMatch(String pt) {
+    private static void doMatch(String pt) {
         matching = new CustomPattern(pt);
         matching.find();
     }
     
-    private void saveReport() {
+    private static void saveReport() {
         File logs;
         StringBuilder p = new StringBuilder();
         try {            
@@ -753,7 +751,7 @@ public class Watchdog extends DefaultHandler {
         }
     }
     
-    private void pause() {
+    private static void pause() {
         try {
             Thread.sleep(timeout);
         }
