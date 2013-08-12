@@ -171,12 +171,13 @@ public class Watchdog extends DefaultHandler {
         }
         
         File backups = new File(backupsFolder);
+        if(backups.exists()) {
+            cleanFolder(backups);
+        }
         
-        if(!backups.exists()) {
-            if(!backups.mkdir()) {
-                System.out.println("Unable to create backups folder!!!");
-                System.exit(1);
-            }
+        if(!backups.mkdir()) {
+            System.out.println("Unable to create backups folder!!!");
+            System.exit(1);
         }
         
         try {
@@ -647,8 +648,7 @@ public class Watchdog extends DefaultHandler {
                 out.write(report.toString());
                 out.flush();
             }
-            System.out.print(p);
-            System.out.println(" SAVED");
+            System.out.println(p.toString() + " SAVED");
         }
         catch(Exception e) {
             System.out.println(e.toString());
