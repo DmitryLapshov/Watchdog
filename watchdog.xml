@@ -5,77 +5,65 @@
         logsfolder = "logs"
         removeresponses = "false"
         backupsfolder = "backups"
-        ziplogfolder = "true"
-        maxlogsize = "50000"
+        ziplogfolder = "false"
+        maxlogsize = "1000"
         timeout = "20000"
         attempts = "1"
         useragent = "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:14.0) Gecko/20100101 Firefox/14.0.1"
-        mail = "true"
+        mail = "false"
         mailsubject = "Test Auto Monitoring Report"
         mailserver = "smtp.gmail.com"
         mailport = "465"
         mailauth = "true"
         mailtransport = "smtps"
-        mailuser = "aaa@bbb.com"
-        mailpassword = "password"
-        mailfrom = "aaa@bbb.com"
-        mailto = "aaa@bbb.com"
-        mailcc = "aaa@bbb.com" />
+        mailuser = "mail@user.com"
+        mailpassword = "mailpassword"
+        mailfrom = "mail@from.com"
+        mailto = "mail@to.com"
+        mailcc = "mail@cc.com" />
     <execute>
-        <disable from = "03:00" till = "03:45" />
-        <disable from = "15:15" till = "16:45" />
-        <open name = "http://www.aaa.com" >
-            <find name = "&lt;title&gt;\s*?Welcome\s*?&lt;/title&gt;" />
-        </open>
-        <open name = "http://www.bbb.com" >
-            <find name = "&lt;title&gt;\s*?Welcome to the BBB&#xAE; new owners’ support website\s*?&lt;/title&gt;" />
-        </open>
-        <set name = "http://player.vimeo.com/video" >
-            <open name = "/15721726" >
-                    <find name = "&lt;title&gt;\s*?Demo\s*?&lt;/title&gt;" />
-            </open>
-        </set>
-        <set name = "http://staging.ppmroadmap.com" >
-            <open name = "/PasswordReminder.aspx" >
-                <find name = "&lt;title&gt;\s*?Roadmap &gt; Password Reminder\s*?&lt;/title&gt;" />
-            </open>
-            <open name = "/secure/Login.aspx" >
-                <find name = "&lt;title&gt;\s*?Roadmap &gt; Login\s*?&lt;/title&gt;" />
-                <user name = "aaa@bbb.com" password = "password" >
-                    <find name = "&lt;title&gt;\s*?Roadmap &gt; Dashboard\s*?&lt;/title&gt;" />
-                </user>
-            </open>
-            <open name = "/Dashboard.aspx" >
-                <find name = "&lt;title&gt;\s*?Roadmap &gt; Dashboard\s*?&lt;/title&gt;" />
-            </open>
-            <open name = "/Projects.aspx" >
-                <find name = "&lt;title&gt;\s*?Roadmap &gt; Projects1\s*?&lt;/title&gt;" />
-            </open>
-            <open name = "/Resources.aspx" >
-                <find name = "&lt;title&gt;\s*?Roadmap &gt; Resources\s*?&lt;/title&gt;" />
-            </open>
-            <open name = "/Reports.aspx" >
-                <find name = "&lt;title&gt;\s*?Roadmap &gt; Reports\s*?&lt;/title&gt;" />
-            </open>
+        <set name = "http://localhost:61521" >
+            <open name = "/accountregistration.aspx" />
+            <find name = "&lt;title&gt;\s*?Roadmap &gt; Account Registration\s*?&lt;/title&gt;" />
+            <!--create name = "/accountregistration.aspx" user = "kit01@null.null" password = "1234567" /-->
+            
+            <open name = "/secure/Login.aspx" />
+            <find name = "&lt;title&gt;\s*?Roadmap &gt; Login\s*?&lt;/title&gt;" />
+            
+            <user name = "/secure/Login.aspx" user = "kit01@null.null" password = "1234567" />
+            <find name = "&lt;title&gt;\s*?Roadmap &gt; Dashboard\s*?&lt;/title&gt;" />
+            
+            <open name = "/gettingstarted.aspx" />
+            <find name = "&lt;title&gt;\s*?Roadmap &gt; Getting Started\s*?&lt;/title&gt;" />
+            
+            <open name = "/Dashboard.aspx" />
+            <find name = "&lt;title&gt;\s*?Roadmap &gt; Dashboard\s*?&lt;/title&gt;" />
+            
+            <open name = "/Projects.aspx" />
+            <find name = "&lt;title&gt;\s*?Roadmap &gt; Projects\s*?&lt;/title&gt;" />
+            
+            <open name = "/Resources.aspx" />
+            <find name = "&lt;title&gt;\s*?Roadmap &gt; Resources\s*?&lt;/title&gt;" />
+            
+            <open name = "/Reports.aspx" />
+            <find name = "&lt;title&gt;\s*?Roadmap &gt; Reports\s*?&lt;/title&gt;" />
+            
             <set name = "/PPMService.asmx" >
-                <post name = "/GetLastBasecampOperationStatus" message = "{'projectID':0}" >
-                    <find name = "&quot;ErrorCode&quot;:0," />
-                </post>
-                <post name = "/IsUndoAvailable" message = "{projectIDs: null}" >
-                    <find name = "&quot;ErrorCode&quot;:1," />
-                </post>
+                <post name = "/GetVisibleResources" message = "" />
+                <find name = "&quot;ErrorCode&quot;:0" />
             </set>
+            
             <set name = "/api" >
-                <open name = "/User/GetCurrent" >
-                    <find name = "&quot;IsAccountOwner&quot;:false" />
-                </open>
-                <open name = "/ProjectGroup/GetList" >
-                    <find name = "&quot;id&quot;:\d+?" />
-                </open>
+                <open name = "/User/GetCurrent" />
+                <find name = "&quot;UserId&quot;:\d+?" />
             </set>
-            <open name = "/logout.aspx" >
-                <find name = "&lt;title&gt;\s*?Roadmap &gt; Login\s*?&lt;/title&gt;" />
-            </open>
+            
+            <open name = "/account.aspx" />
+            <find name = "&lt;title&gt;\s*?Roadmap &gt; Account &gt; My Account\s*?&lt;/title&gt;" />
+            <!--cancel name = "/account.aspx" /-->
+            
+            <open name = "/logout.aspx" />
+            <find name = "&lt;title&gt;\s*?Roadmap &gt; Login\s*?&lt;/title&gt;" />
         </set>
     </execute>
 </parameters>

@@ -46,15 +46,6 @@ import org.xml.sax.helpers.DefaultHandler;
  *
  * @author kit
  * 
- * Supported commands:
- *  execute
- *  disable
- *  set
- *  user (uses http post with 'application/x-www-form-urlencoded; charset=utf-8')
- *  open (uses http get with 'text/html; charset=utf-8')
- *  post (uses http post with 'application/json; charset=utf-8')
- *  find (uses regex matching)
- *  include
  */
 public class Watchdog extends DefaultHandler {
     private static String dateFormatNow;
@@ -81,7 +72,7 @@ public class Watchdog extends DefaultHandler {
     private static int timeout;
     private static int maxLogSize;
     private static LinkedList<String> paths;
-    private static LinkedList<String> responses;
+    private static String lastResponse;
     private static ArrayList<String> files;
     private static Request request;
     private static CustomPattern matching;
@@ -226,14 +217,10 @@ public class Watchdog extends DefaultHandler {
         
         public void find() {
             Pattern p = Pattern.compile(name);
-            Matcher m = p.matcher(responses.getLast());
+            Matcher m = p.matcher(lastResponse);
             found = m.find();
-            if(found) {
-                responses.add(m.group());
-            }
-            else {
+            if(!found) {
                 saveLastResponse(".txt");
-                responses.add("");
                 error = true;
             }
         }
@@ -465,7 +452,7 @@ public class Watchdog extends DefaultHandler {
             }
             p.append("/").append(request.name.replaceAll("[/\\: ]+", "_")).append(ext);
             try (BufferedWriter out = new BufferedWriter(new FileWriter(p.toString()))) {
-                out.write(responses.getLast());
+                out.write(lastResponse);
                 out.flush();
             }
             files.add(p.toString());
@@ -527,7 +514,6 @@ public class Watchdog extends DefaultHandler {
     private static void prepareExecution() {
         paths = new LinkedList<>();
         paths.add("");
-        responses = new LinkedList<>();
         files = new ArrayList<>();
         report = new StringBuilder();
         report.append("<!DOCTYPE html>\n<html>\n<head>\n")
@@ -568,34 +554,95 @@ public class Watchdog extends DefaultHandler {
         }
     }
     
-    private static void logIn(String user, String password) {
+    private static void logIn(String path, String user, String password) {
         if(request.isRespOK()) {
             Pattern p = Pattern.compile("__VIEWSTATE.+?value=\"(.+?)\"");
-            Matcher m = p.matcher(responses.getLast());
+            Matcher m = p.matcher(lastResponse);
             String message = String.format(
-                "__VIEWSTATE=%1$s&Login1$UserName=%2$s&Login1$Password=%3$s&Login1$LoginButton=Sign+In",
-                m.find(1)? m.group(1): "", 
+                "__VIEWSTATE=%s&Login1$UserName=%s&Login1$Password=%s&Login1$LoginButton=Sign+In",
+                m.find()? m.group(1): "", 
                 user, 
                 password);
-            doPost(message, "application/x-www-form-urlencoded; charset=utf-8");                
+            doPost(path, message, "application/x-www-form-urlencoded; charset=utf-8");                
         }
     }
     
-    private static void doOpen() {
-        doGet("text/html; charset=utf-8");
+    private static void createAccount(String path, String user, String password) {
+        if(request.isRespOK()) {
+            Pattern p = Pattern.compile("__VIEWSTATE.+?value=\"(.+?)\"");
+            Matcher m = p.matcher(lastResponse);
+            String message = String.format(
+                    "__EVENTARGUMENT=undefined&" +
+                    "__EVENTTARGET=btnRegisterCompany&" +
+                    "__LASTFOCUS=&" +
+                    "__VIEWSTATE=%s&" + 
+                    "ctl00$PublicContent$TimeZoneName=+02:00,1;Athens&" +
+                    "ctl00$PublicContent$btnRegisterCompany=&" +
+                    "ctl00$PublicContent$chkAgree=on&" +
+                    "ctl00$PublicContent$extVConfirmPassword_ClientState=&" +
+                    "ctl00$PublicContent$extVPasswordLength_ClientState=&" +
+                    "ctl00$PublicContent$extVReqCompanyName_ClientState=&" +
+                    "ctl00$PublicContent$extVReqConfirmPassword_ClientState=&" +
+                    "ctl00$PublicContent$extVReqEmail_ClientState=&" +
+                    "ctl00$PublicContent$extVReqFirstName_ClientState=&" +
+                    "ctl00$PublicContent$extVReqLastName_ClientState=&" +
+                    "ctl00$PublicContent$extVReqPassword_ClientState=&" +
+                    "ctl00$PublicContent$extVvEmail_ClientState=&" +
+                    "ctl00$PublicContent$hidPaymentPlanID=&" +
+                    "ctl00$PublicContent$txtCompanyName=%s&" +
+                    "ctl00$PublicContent$txtEmail=%s&" +
+                    "ctl00$PublicContent$txtFirstName=%s&" +
+                    "ctl00$PublicContent$txtLastName=%s&" +
+                    "ctl00$PublicContent$txtPassword=%s&" +
+                    "ctl00$PublicContent$txtPassword2=%s",
+                    m.find()? m.group(1): "",
+                    "Test_Company",
+                    user,
+                    "First",
+                    "Last",
+                    password,
+                    password);
+            doPost(path, message, "application/x-www-form-urlencoded; charset=utf-8");                
+        }
     }
     
-    private static void doGet(String type) {
-        String response = "";
+    /*private static void cancelAccount(String path) {
+        if(request.isRespOK()) {
+            Pattern p = Pattern.compile("__VIEWSTATE.+?value=\"(.+?)\"");
+            Matcher m = p.matcher(lastResponse);
+            String message = String.format(
+                    "__EVENTARGUMENT=&" +
+                    "__EVENTTARGET=&" +
+                    "__VIEWSTATE=%s&" + 
+                    "ctl00$ContentPlaceHolder1$btnCloseAccount=&" +
+                    "ctl00$ContentPlaceHolder1$hidCurPlanID=1&" +
+                    "ctl00$ContentPlaceHolder1$hidHasBCC=&" +
+                    "ctl00$ContentPlaceHolder1$hidHasTimeEntries=&" +
+                    "ctl00$ContentPlaceHolder1$hidNewPlanID=&" +
+                    "ctl00$checkAPISettings$hidImportSourceID=0&" +
+                    "ctl00$ctl22$ProjectCreatePopoutBodyWidth=600&" +
+                    "ctl00$ctl23$selUserCreateUAG$ctrList=0&" +
+                    "ctl00$ctl23$txtUserCreatePassword=&" +
+                    "ctl00$hidNotificationID=&" +
+                    "ctl00_ctl08_HiddenField=",
+                    m.find()? m.group(1): "");
+            doPost(path, message, "application/x-www-form-urlencoded; charset=utf-8");
+        }
+    }*/
+    
+    private static void doOpen(String path) {
+        doGet(path, "text/html; charset=utf-8");
+    }
+    
+    private static void doGet(String path, String type) {
         for(int i = 0; i < attempts ; i++) {
-            request = new Request(paths.getLast());
-            response = request.get(type);
+            request = new Request(path);
+            lastResponse = request.get(type);
             if(request.respCode != 0) {
                 break;
             }
             pause();
         }
-        responses.add(response);
         if(!request.isRespOK()) {
             error = true;
             if(request.respCode != 0) {
@@ -604,21 +651,19 @@ public class Watchdog extends DefaultHandler {
         }
     }
     
-    private static void doPost(String message) {
-        doPost(message, "application/json; charset=utf-8");
+    private static void doJsonPost(String path, String message) {
+        doPost(path, message, "application/json; charset=utf-8");
     }
     
-    private static void doPost(String message, String type) {
-        String response = "";
+    private static void doPost(String path, String message, String type) {
         for(int i = 0; i < attempts ; i++) {
-            request = new Request(paths.getLast());
-            response = request.post(message, type);
+            request = new Request(path);
+            lastResponse = request.post(message, type);
             if(request.respCode != 0) {
                 break;
             }
             pause();
         }
-        responses.add(response);
         if(!request.isRespOK()){
             error = true;
             if(request.respCode != 0) {
@@ -683,19 +728,25 @@ public class Watchdog extends DefaultHandler {
                 paths.add(paths.getLast() + attrs.getValue("name"));
                 break;
             case "open":
-                paths.add(paths.getLast() + attrs.getValue("name"));
-                doOpen();
+                doOpen(paths.getLast() + attrs.getValue("name"));
                 request.reportIt();
                 break;
             case "post":
-                paths.add(paths.getLast() + attrs.getValue("name"));
-                doPost(attrs.getValue("message"));
+                doJsonPost(paths.getLast() + attrs.getValue("name"), attrs.getValue("message"));
                 request.reportIt();
                 break;
             case "user":
-                logIn(attrs.getValue("name"), attrs.getValue("password"));
+                logIn(paths.getLast() + attrs.getValue("name"), attrs.getValue("user"), attrs.getValue("password"));
                 request.reportIt();
                 break;
+            case "create":
+                createAccount(paths.getLast() + attrs.getValue("name"), attrs.getValue("user"), attrs.getValue("password"));
+                request.reportIt();
+                break;
+            /*case "cancel":
+                cancelAccount(paths.getLast() + attrs.getValue("name"));
+                request.reportIt();
+                break;*/
             case "find":
                 if(request.isRespOK()) {
                     doMatch(attrs.getValue("name"));
@@ -714,24 +765,6 @@ public class Watchdog extends DefaultHandler {
             case "set":
                 paths.removeLast();
                 break;
-            case "open":
-                responses.removeLast();
-                paths.removeLast();
-                break;
-            case "post":
-                responses.removeLast();
-                paths.removeLast();
-                break;
-            case "user":
-                if(request.isRespOK()) {
-                    responses.removeLast();
-                }
-                break;
-            case "find":
-                if(request.isRespOK()) {
-                    responses.removeLast();
-                }
-                break;
             case "execute":
                 if(executed == 1) {
                     report.append("</table>\n</div>\n</body>\n</html>\n");
@@ -747,6 +780,8 @@ public class Watchdog extends DefaultHandler {
                     System.out.println((error? "Finished with error(s): " : "Finished: ") + now());
                 }
                 executed--;
+                break;
+            default:
                 break;
         }
     }
