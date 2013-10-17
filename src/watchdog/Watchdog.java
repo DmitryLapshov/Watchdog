@@ -450,7 +450,7 @@ public class Watchdog extends DefaultHandler {
                     return;
                 }
             }
-            p.append("/").append(request.name.replaceAll("[/\\: ]+", "_")).append(ext);
+            p.append("/").append(request.name.replaceAll("[/\\: ?&]+", "_")).append(ext);
             try (BufferedWriter out = new BufferedWriter(new FileWriter(p.toString()))) {
                 out.write(lastResponse);
                 out.flush();
@@ -630,10 +630,6 @@ public class Watchdog extends DefaultHandler {
         }
     }*/
     
-    private static void doOpen(String path) {
-        doGet(path, "text/html; charset=utf-8");
-    }
-    
     private static void doGet(String path, String type) {
         for(int i = 0; i < attempts ; i++) {
             request = new Request(path);
@@ -649,10 +645,6 @@ public class Watchdog extends DefaultHandler {
                 saveLastResponse(".txt");
             }
         }
-    }
-    
-    private static void doJsonPost(String path, String message) {
-        doPost(path, message, "application/json; charset=utf-8");
     }
     
     private static void doPost(String path, String message, String type) {
@@ -702,6 +694,10 @@ public class Watchdog extends DefaultHandler {
     
     @Override
     public void startElement(String uri, String localName, String qName, Attributes attrs) throws SAXException {
+        String params;
+        String message;
+        int qty;
+        
         switch (qName) {
             case "constants":
                 if(executed == 0) {
@@ -728,12 +724,29 @@ public class Watchdog extends DefaultHandler {
                 paths.add(paths.getLast() + attrs.getValue("name"));
                 break;
             case "open":
-                doOpen(paths.getLast() + attrs.getValue("name"));
-                request.reportIt();
+                params = attrs.getIndex("params") == -1? "" : attrs.getValue("params");
+                qty = attrs.getIndex("qty") == -1? 1 : Integer.parseInt(attrs.getValue("qty"));
+                for(int i = 0; i < qty; i++) {
+                    doGet(String.format("%s%s?%s",
+                            paths.getLast(),
+                            attrs.getValue("name"),
+                            params.replace("XXX", String.format("%06d", i))), "text/html; charset=utf-8");
+                    request.reportIt();
+                }
                 break;
             case "post":
-                doJsonPost(paths.getLast() + attrs.getValue("name"), attrs.getValue("message"));
-                request.reportIt();
+                message = attrs.getIndex("message") == -1? "" : attrs.getValue("message");
+                params = attrs.getIndex("params") == -1? "" : attrs.getValue("params");
+                qty = attrs.getIndex("qty") == -1? 1 : Integer.parseInt(attrs.getValue("qty"));
+                for(int i = 0; i < qty; i++) {
+                    doPost(String.format("%s%s?%s", 
+                            paths.getLast(), 
+                            attrs.getValue("name"), 
+                            params.replace("XXX", String.format("%06d", i))), 
+                            message.replace("XXX", String.format("%06d", i)), 
+                            "application/json; charset=utf-8");
+                    request.reportIt();
+                }
                 break;
             case "user":
                 logIn(paths.getLast() + attrs.getValue("name"), attrs.getValue("user"), attrs.getValue("password"));
