@@ -5,6 +5,7 @@ import java.io.BufferedWriter;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -28,6 +29,7 @@ import java.util.zip.ZipOutputStream;
 import javax.activation.DataHandler;
 import javax.activation.FileDataSource;
 import javax.mail.Message;
+import javax.mail.MessagingException;
 import javax.mail.Multipart;
 import javax.mail.Session;
 import javax.mail.Transport;
@@ -35,6 +37,7 @@ import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMultipart;
+import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 import org.xml.sax.Attributes;
@@ -191,7 +194,7 @@ public class Watchdog extends DefaultHandler {
     }
     
     private static class CustomPattern {
-        private String name;
+        private final String name;
         private boolean found;
         
         public CustomPattern(String name) {
@@ -240,7 +243,7 @@ public class Watchdog extends DefaultHandler {
         
         public boolean isRespOK() {
             return (respCode == HttpURLConnection.HTTP_OK || 
-                    respCode == HttpURLConnection.HTTP_NO_CONTENT)? true : false;
+                    respCode == HttpURLConnection.HTTP_NO_CONTENT);
         }
 
         public String get(String type) {
@@ -284,10 +287,9 @@ public class Watchdog extends DefaultHandler {
                 respException = e.toString();
                 System.out.println(respException);
             }
-            finally {
-                timespan = System.currentTimeMillis() - started;
-                return buff.toString();
-            }
+
+            timespan = System.currentTimeMillis() - started;
+            return buff.toString();
         }
 
         public String post(String message, String type) {
@@ -336,10 +338,9 @@ public class Watchdog extends DefaultHandler {
                 respException = e.toString();
                 System.out.println(respException);
             }
-            finally {
-                timespan = System.currentTimeMillis() - started;
-                return buff.toString();
-            }
+
+            timespan = System.currentTimeMillis() - started;
+            return buff.toString();
         }
         
         public void reportIt() {
@@ -425,7 +426,7 @@ public class Watchdog extends DefaultHandler {
             tran.close();
             System.out.println("EMAIL SENT");
         }
-        catch(Exception e) {
+        catch(MessagingException e) {
             System.out.println(e.toString());
         }
     }
@@ -459,7 +460,7 @@ public class Watchdog extends DefaultHandler {
             System.out.print(p);
             System.out.println(" SAVED");
         }
-        catch (Exception e) {
+        catch (IOException e) {
             System.out.println(e.toString());
         }
     }
@@ -547,7 +548,7 @@ public class Watchdog extends DefaultHandler {
                 newPrintStream = new PrintStream(new FileOutputStream(f, true));
                 System.setOut(newPrintStream);
             }
-            catch(Exception ex) {
+            catch(FileNotFoundException ex) {
                 System.out.println(ex.toString());
                 System.exit(1);
             }
@@ -687,7 +688,7 @@ public class Watchdog extends DefaultHandler {
             }
             System.out.println(p.toString() + " SAVED");
         }
-        catch(Exception e) {
+        catch(IOException e) {
             System.out.println(e.toString());
         }
     }
@@ -851,7 +852,7 @@ public class Watchdog extends DefaultHandler {
         catch(DisabledBySchedule ex){
             System.out.println(ex.getMessage());
         }
-        catch(Exception ex){
+        catch(IOException | ParserConfigurationException | SAXException ex){
             System.out.println(ex.toString());
         }
     }
