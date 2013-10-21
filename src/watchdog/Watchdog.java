@@ -561,11 +561,20 @@ public class Watchdog extends DefaultHandler {
     
     private static void logIn(String path, String user, String password) {
         if(request.isRespOK()) {
+            String viewstate = "";
             Pattern p = Pattern.compile("__VIEWSTATE.+?value=\"(.+?)\"");
             Matcher m = p.matcher(lastResponse);
+            if(m.find()) {
+                try {
+                    viewstate = URLEncoder.encode(m.group(1), "UTF-8");
+                } catch (UnsupportedEncodingException ex) {
+                    System.out.println(ex.toString());
+                    System.exit(1);
+                }
+            }
             String message = String.format(
                 "__VIEWSTATE=%s&Login1$UserName=%s&Login1$Password=%s&Login1$LoginButton=Sign+In",
-                m.find()? m.group(1): "", 
+                viewstate, 
                 user, 
                 password);
             doPost(path, message, "application/x-www-form-urlencoded; charset=utf-8");                
