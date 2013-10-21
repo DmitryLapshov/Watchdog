@@ -12,16 +12,20 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
+import java.io.UnsupportedEncodingException;
 import java.net.CookieHandler;
 import java.net.CookieManager;
 import java.net.CookiePolicy;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.LinkedList;
 import java.util.Properties;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -570,8 +574,17 @@ public class Watchdog extends DefaultHandler {
     
     private static void createAccount(String path, String user, String password) {
         if(request.isRespOK()) {
+            String viewstate = "";
             Pattern p = Pattern.compile("__VIEWSTATE.+?value=\"(.+?)\"");
             Matcher m = p.matcher(lastResponse);
+            if(m.find()) {
+                try {
+                    viewstate = URLEncoder.encode(m.group(1), "UTF-8");
+                } catch (UnsupportedEncodingException ex) {
+                    System.out.println(ex.toString());
+                    System.exit(1);
+                }
+            }
             String message = String.format(
                     "__EVENTARGUMENT=undefined&" +
                     "__EVENTTARGET=btnRegisterCompany&" +
@@ -596,7 +609,7 @@ public class Watchdog extends DefaultHandler {
                     "ctl00$PublicContent$txtLastName=%s&" +
                     "ctl00$PublicContent$txtPassword=%s&" +
                     "ctl00$PublicContent$txtPassword2=%s",
-                    m.find()? m.group(1): "",
+                    viewstate,
                     "Test_Company",
                     user,
                     "First",
@@ -607,10 +620,19 @@ public class Watchdog extends DefaultHandler {
         }
     }
     
-    /*private static void cancelAccount(String path) {
+    private static void cancelAccount(String path) {
         if(request.isRespOK()) {
+            String viewstate = "";
             Pattern p = Pattern.compile("__VIEWSTATE.+?value=\"(.+?)\"");
             Matcher m = p.matcher(lastResponse);
+            if(m.find()) {
+                try {
+                    viewstate = URLEncoder.encode(m.group(1), "UTF-8");
+                } catch (UnsupportedEncodingException ex) {
+                    System.out.println(ex.toString());
+                    System.exit(1);
+                }
+            }
             String message = String.format(
                     "__EVENTARGUMENT=&" +
                     "__EVENTTARGET=&" +
@@ -623,13 +645,13 @@ public class Watchdog extends DefaultHandler {
                     "ctl00$checkAPISettings$hidImportSourceID=0&" +
                     "ctl00$ctl22$ProjectCreatePopoutBodyWidth=600&" +
                     "ctl00$ctl23$selUserCreateUAG$ctrList=0&" +
-                    "ctl00$ctl23$txtUserCreatePassword=&" +
+                    "ctl00$ctl23$txtUserCreatePassword=polit67&" +
                     "ctl00$hidNotificationID=&" +
                     "ctl00_ctl08_HiddenField=",
-                    m.find()? m.group(1): "");
+                    viewstate);
             doPost(path, message, "application/x-www-form-urlencoded; charset=utf-8");
         }
-    }*/
+    }
     
     private static void doGet(String path, String type) {
         for(int i = 0; i < attempts ; i++) {
@@ -697,7 +719,7 @@ public class Watchdog extends DefaultHandler {
     public void startElement(String uri, String localName, String qName, Attributes attrs) throws SAXException {
         String params;
         String message;
-        int qty;
+        int repeat;
         
         switch (qName) {
             case "constants":
@@ -726,30 +748,30 @@ public class Watchdog extends DefaultHandler {
                 break;
             case "open":
                 params = attrs.getIndex("params") == -1? "" : attrs.getValue("params");
-                qty = attrs.getIndex("qty") == -1? 1 : Integer.parseInt(attrs.getValue("qty"));
-                for(int i = 0; i < qty; i++) {
+                repeat = attrs.getIndex("repeat") == -1? 1 : Integer.parseInt(attrs.getValue("repeat"));
+                for(int i = 0; i < repeat; i++) {
                     doGet(String.format("%s%s?%s",
                             paths.getLast(),
                             attrs.getValue("name"),
-                            params.replace("XXX", String.format("%06d", i))), "text/html; charset=utf-8");
+                            params.replace("XXX", String.format("%03d", i))), "text/html; charset=utf-8");
                     request.reportIt();
                 }
                 break;
             case "post":
                 message = attrs.getIndex("message") == -1? "" : attrs.getValue("message");
                 params = attrs.getIndex("params") == -1? "" : attrs.getValue("params");
-                qty = attrs.getIndex("qty") == -1? 1 : Integer.parseInt(attrs.getValue("qty"));
-                for(int i = 0; i < qty; i++) {
+                repeat = attrs.getIndex("repeat") == -1? 1 : Integer.parseInt(attrs.getValue("repeat"));
+                for(int i = 0; i < repeat; i++) {
                     doPost(String.format("%s%s?%s", 
                             paths.getLast(), 
                             attrs.getValue("name"), 
-                            params.replace("XXX", String.format("%06d", i))), 
-                            message.replace("XXX", String.format("%06d", i)), 
+                            params.replace("XXX", String.format("%03d", i))), 
+                            message.replace("XXX", String.format("%03d", i)), 
                             "application/json; charset=utf-8");
                     request.reportIt();
                 }
                 break;
-            case "user":
+            case "login":
                 logIn(paths.getLast() + attrs.getValue("name"), attrs.getValue("user"), attrs.getValue("password"));
                 request.reportIt();
                 break;
@@ -757,10 +779,10 @@ public class Watchdog extends DefaultHandler {
                 createAccount(paths.getLast() + attrs.getValue("name"), attrs.getValue("user"), attrs.getValue("password"));
                 request.reportIt();
                 break;
-            /*case "cancel":
+            case "cancel":
                 cancelAccount(paths.getLast() + attrs.getValue("name"));
                 request.reportIt();
-                break;*/
+                break;
             case "find":
                 if(request.isRespOK()) {
                     doMatch(attrs.getValue("name"));

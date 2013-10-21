@@ -22,15 +22,16 @@
         mailto = "mail@to.com"
         mailcc = "mail@cc.com" />
     <execute>
-        <set name = "http://localhost:61521" >
+        <set name = "http://testing.com" >
             <open name = "/accountregistration.aspx" />
             <find name = "&lt;title&gt;\s*?Roadmap &gt; Account Registration\s*?&lt;/title&gt;" />
-            <!--create name = "/accountregistration.aspx" user = "kit01@null.null" password = "1234567" /-->
+            
+            <create name = "/accountregistration.aspx" user = "kit01@null.null" password = "1234567" />
             
             <open name = "/secure/Login.aspx" />
             <find name = "&lt;title&gt;\s*?Roadmap &gt; Login\s*?&lt;/title&gt;" />
             
-            <user name = "/secure/Login.aspx" user = "kit01@null.null" password = "1234567" />
+            <login name = "/secure/Login.aspx" user = "kit01@null.null" password = "1234567" />
             <find name = "&lt;title&gt;\s*?Roadmap &gt; Dashboard\s*?&lt;/title&gt;" />
             
             <open name = "/gettingstarted.aspx" />
@@ -49,21 +50,21 @@
             <find name = "&lt;title&gt;\s*?Roadmap &gt; Reports\s*?&lt;/title&gt;" />
             
             <set name = "/PPMService.asmx" >
-                <post name = "/GetVisibleResources" message = "" />
+                <post name = "/GetVisibleResources" message = "" repeat = "3" />
                 <find name = "&quot;ErrorCode&quot;:0" />
             </set>
-            
             <set name = "/api" >
-                <open name = "/User/GetCurrent" />
+                <open name = "/User/GetCurrent" repeat = "3" />
                 <find name = "&quot;UserId&quot;:\d+?" />
             </set>
-            
             <open name = "/account.aspx" />
             <find name = "&lt;title&gt;\s*?Roadmap &gt; Account &gt; My Account\s*?&lt;/title&gt;" />
-            <!--cancel name = "/account.aspx" /-->
             
-            <open name = "/logout.aspx" />
-            <find name = "&lt;title&gt;\s*?Roadmap &gt; Login\s*?&lt;/title&gt;" />
+            <cancel name = "/account.aspx" />
+            <find name = "&lt;title&gt;\s*?Roadmap - Account closed\s*?&lt;/title&gt;" />
+            
+            <!--open name = "/logout.aspx" />
+            <find name = "&lt;title&gt;\s*?Roadmap &gt; Login\s*?&lt;/title&gt;" /-->
         </set>
     </execute>
 </parameters>
