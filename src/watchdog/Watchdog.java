@@ -759,7 +759,7 @@ public class Watchdog extends DefaultHandler {
                 params = attrs.getIndex("params") == -1? "" : attrs.getValue("params");
                 repeat = attrs.getIndex("repeat") == -1? 1 : Integer.parseInt(attrs.getValue("repeat"));
                 for(int i = 0; i < repeat; i++) {
-                    doGet(String.format("%s%s?%s",
+                    doGet(String.format("%s%s%s",
                             paths.getLast(),
                             attrs.getValue("name"),
                             params.replace("XXX", String.format("%03d", i))), "text/html; charset=utf-8");
@@ -771,7 +771,7 @@ public class Watchdog extends DefaultHandler {
                 params = attrs.getIndex("params") == -1? "" : attrs.getValue("params");
                 repeat = attrs.getIndex("repeat") == -1? 1 : Integer.parseInt(attrs.getValue("repeat"));
                 for(int i = 0; i < repeat; i++) {
-                    doPost(String.format("%s%s?%s", 
+                    doPost(String.format("%s%s%s", 
                             paths.getLast(), 
                             attrs.getValue("name"), 
                             params.replace("XXX", String.format("%03d", i))), 
